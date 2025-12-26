@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members  = ["ui", "web", "api"]
+
+[workspace.dependencies]
+dioxus = { version = "0.7.2" }
+
+# Workspace
+ui  = { path = "ui" }
+api = { path = "api" }
