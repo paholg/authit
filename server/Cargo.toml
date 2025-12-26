@@ -8,7 +8,7 @@ types.workspace = true
 dioxus = { workspace = true, features = ["fullstack", "server"] }
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
+eyre.workspace = true
 secrecy.workspace = true
 tracing.workspace = true
 reqwest.workspace = true

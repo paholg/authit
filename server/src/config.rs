@@ -1,3 +1,4 @@
+use eyre::{eyre, Result};
 use secrecy::SecretString;
 use std::env;
 
@@ -12,14 +13,8 @@ pub struct Config {
     pub admin_group: String,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-    #[error("Missing environment variable: {0}")]
-    MissingEnvVar(String),
-}
-
 impl Config {
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn from_env() -> Result<Self> {
         Ok(Self {
             kanidm_url: env_var("AUTHIT_KANIDM_URL")?,
             kanidm_token: env_var("AUTHIT_KANIDM_TOKEN")?.into(),
@@ -32,6 +27,6 @@ impl Config {
     }
 }
 
-fn env_var(name: &str) -> Result<String, ConfigError> {
-    env::var(name).map_err(|_| ConfigError::MissingEnvVar(name.into()))
+fn env_var(name: &str) -> Result<String> {
+    env::var(name).map_err(|_| eyre!("missing environment variable: {}", name))
 }

@@ -1,3 +1,4 @@
+use eyre::{Result, WrapErr};
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
@@ -40,25 +41,17 @@ mod secret_string {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum SessionError {
-    #[error("Invalid session data")]
-    InvalidSession,
-    #[error("Session not found")]
-    NotFound,
-}
-
-pub fn encode_session(session: &UserSession) -> Result<String, SessionError> {
-    let json = serde_json::to_string(session).map_err(|_| SessionError::InvalidSession)?;
+pub fn encode_session(session: &UserSession) -> Result<String> {
+    let json = serde_json::to_string(session).wrap_err("failed to serialize session")?;
     use base64::Engine;
     Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json.as_bytes()))
 }
 
-pub fn decode_session(encoded: &str) -> Result<UserSession, SessionError> {
+pub fn decode_session(encoded: &str) -> Result<UserSession> {
     use base64::Engine;
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(encoded)
-        .map_err(|_| SessionError::InvalidSession)?;
-    let json = String::from_utf8(bytes).map_err(|_| SessionError::InvalidSession)?;
-    serde_json::from_str(&json).map_err(|_| SessionError::InvalidSession)
+        .wrap_err("failed to decode base64")?;
+    let json = String::from_utf8(bytes).wrap_err("invalid UTF-8 in session")?;
+    serde_json::from_str(&json).wrap_err("failed to parse session JSON")
 }

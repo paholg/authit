@@ -14,7 +14,7 @@ types  = { path = "types" }
 # Shared
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thiserror = "2"
+eyre = "0.6"
 secrecy = { version = "0.10", features = ["serde"] }
 base64 = "0.22"
 
