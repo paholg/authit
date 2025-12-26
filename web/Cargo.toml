@@ -1,13 +1,13 @@
 [package]
-name = "web"
+name    = "web"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "fullstack"] }
-ui = { workspace = true }
+ui     = { workspace = true }
 
 [features]
 default = []
-web = ["dioxus/web"]
-server = ["dioxus/server", "ui/server"]
+web     = ["dioxus/web"]
+server  = ["dioxus/server", "ui/server"]
