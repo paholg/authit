@@ -1,4 +1,3 @@
-use eyre::{Result, WrapErr};
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
@@ -41,17 +40,15 @@ mod secret_string {
     }
 }
 
-pub fn encode_session(session: &UserSession) -> Result<String> {
-    let json = serde_json::to_string(session).wrap_err("failed to serialize session")?;
+pub fn encode_session(session: &UserSession) -> crate::Result<String> {
+    let json = serde_json::to_string(session)?;
     use base64::Engine;
     Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json.as_bytes()))
 }
 
-pub fn decode_session(encoded: &str) -> Result<UserSession> {
+pub fn decode_session(encoded: &str) -> crate::Result<UserSession> {
     use base64::Engine;
-    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .decode(encoded)
-        .wrap_err("failed to decode base64")?;
-    let json = String::from_utf8(bytes).wrap_err("invalid UTF-8 in session")?;
-    serde_json::from_str(&json).wrap_err("failed to parse session JSON")
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(encoded)?;
+    let json = String::from_utf8(bytes)?;
+    Ok(serde_json::from_str(&json)?)
 }

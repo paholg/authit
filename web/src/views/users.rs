@@ -1,10 +1,15 @@
 use crate::{Route, use_error};
-use api::{Group, Person, ResetLink};
 use dioxus::document::eval;
 use dioxus::prelude::*;
+use jiff::Timestamp;
+use types::{
+    ResetLink,
+    kanidm::{Group, Person},
+};
+use uuid::Uuid;
 
 #[component]
-pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
+pub fn Users(user_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut users = use_signal(Vec::<Person>::new);
     let mut groups = use_signal(Vec::<Group>::new);
     let mut loading = use_signal(|| true);
@@ -22,17 +27,13 @@ pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
 
             match (users_result, groups_result) {
                 (Ok(mut u), Ok(mut g)) => {
-                    u.sort_by(|a, b| {
-                        let a_email = a.mail.as_deref().unwrap_or("");
-                        let b_email = b.mail.as_deref().unwrap_or("");
-                        a_email.to_lowercase().cmp(&b_email.to_lowercase())
-                    });
-                    g.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                    u.sort_unstable();
+                    g.sort_unstable();
                     users.set(u);
                     groups.set(g);
                 }
                 (Err(e), _) | (_, Err(e)) => {
-                    error_state.set(e.to_string());
+                    error_state.set_server_error(&e);
                 }
             }
             loading.set(false);
@@ -46,11 +47,7 @@ pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
     let refresh_users = move || {
         spawn(async move {
             if let Ok(mut u) = api::list_users().await {
-                u.sort_by(|a, b| {
-                    let a_email = a.mail.as_deref().unwrap_or("");
-                    let b_email = b.mail.as_deref().unwrap_or("");
-                    a_email.to_lowercase().cmp(&b_email.to_lowercase())
-                });
+                u.sort_unstable();
                 users.set(u);
             }
         });
@@ -123,7 +120,7 @@ pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
                                                     },
                                                     td { "{user.display_name}" }
                                                     td { "{user.name}" }
-                                                    td { {user.mail.as_deref().unwrap_or("-")} }
+                                                    td { {user.email_addresses.join(", ")} }
                                                 }
                                             }
                                         }
@@ -149,16 +146,11 @@ pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
     }
 }
 
-/// Component that displays a Unix timestamp formatted in Pacific time
 #[component]
-fn ExpiryTime(expires_at: u64) -> Element {
+fn ExpiryTime(expires_at: Timestamp) -> Element {
     let formatted = jiff::tz::TimeZone::get("America/Los_Angeles")
         .ok()
-        .and_then(|tz| {
-            jiff::Timestamp::from_second(expires_at as i64)
-                .ok()
-                .map(|ts| ts.to_zoned(tz))
-        })
+        .map(|tz| expires_at.to_zoned(tz))
         .map(|zdt| zdt.strftime("%b %d, %Y at %I:%M %p %Z").to_string())
         .unwrap_or_else(|| "Unknown".to_string());
 
@@ -189,7 +181,7 @@ fn UserDetailsCard(
     let mut error_state = use_error();
     let mut generating_reset = use_signal(|| false);
     let mut reset_link = use_signal(|| None::<ResetLink>);
-    let mut updating_group = use_signal(|| None::<String>);
+    let mut updating_group = use_signal(|| None::<Uuid>);
     let mut copied = use_signal(|| false);
     let mut prev_user_id = use_signal(|| user.uuid.clone());
     let mut show_delete_confirm = use_signal(|| false);
@@ -225,11 +217,9 @@ fn UserDetailsCard(
                     span { class: "form-label", "Username" }
                     div { class: "form-value", "{user.name}" }
                 }
-                if let Some(mail) = &user.mail {
-                    div { class: "form-group",
-                        span { class: "form-label", "Email" }
-                        div { class: "form-value", "{mail}" }
-                    }
+                div { class: "form-group",
+                    span { class: "form-label", "Email" }
+                    div { class: "form-value", "{user.email_addresses.join(\", \")}" }
                 }
                 div { class: "form-group",
                     span { class: "form-label", "UUID" }
@@ -244,7 +234,7 @@ fn UserDetailsCard(
                         {
                             let is_member = is_member_of(&user, group);
                             let group_name = group.name.clone();
-                            let group_id = group.name.clone();
+                            let group_id = group.uuid.clone();
                             let user_id = user_id.clone();
                             let is_updating = updating_group.read().as_ref() == Some(&group_id);
 
@@ -263,7 +253,7 @@ fn UserDetailsCard(
                                                     updating_group.set(Some(group_id.clone()));
                                                     match api::update_user_group(user_id, group_id, add).await {
                                                         Ok(()) => on_updated.call(()),
-                                                        Err(e) => error_state.set(format!("Failed to update group: {}", e)),
+                                                        Err(e) => error_state.set_server_error(&e),
                                                     }
                                                     updating_group.set(None);
                                                 });
@@ -291,7 +281,7 @@ fn UserDetailsCard(
                         {
                             let is_member = is_member_of(&user, group);
                             let group_name = group.name.clone();
-                            let group_id = group.name.clone();
+                            let group_id = group.uuid.clone();
                             let user_id = user_id.clone();
                             let is_updating = updating_group.read().as_ref() == Some(&group_id);
 
@@ -310,7 +300,7 @@ fn UserDetailsCard(
                                                     updating_group.set(Some(group_id.clone()));
                                                     match api::update_user_group(user_id, group_id, add).await {
                                                         Ok(()) => on_updated.call(()),
-                                                        Err(e) => error_state.set(format!("Failed to update group: {}", e)),
+                                                        Err(e) => error_state.set_server_error(&e),
                                                     }
                                                     updating_group.set(None);
                                                 });
@@ -348,7 +338,7 @@ fn UserDetailsCard(
                                                 spawn(async move {
                                                     let js = format!(
                                                         r#"navigator.clipboard.writeText("{}")"#,
-                                                        url.replace("\"", "\\\"")
+                                                        url
                                                     );
                                                     if eval(&js).recv::<()>().await.is_ok() {
                                                         copied.set(true);
@@ -403,14 +393,12 @@ fn UserDetailsCard(
                 } else {
                     button {
                         onclick: {
-                            let user_id = user_id.clone();
                             move |_| {
-                                let user_id = user_id.clone();
                                 spawn(async move {
                                     generating_reset.set(true);
                                     match api::generate_reset_link(user_id).await {
                                         Ok(link) => reset_link.set(Some(link)),
-                                        Err(e) => error_state.set(format!("Failed to generate reset link: {}", e)),
+                                        Err(e) => error_state.set_server_error(&e),
                                     }
                                     generating_reset.set(false);
                                 });
@@ -450,7 +438,7 @@ fn UserDetailsCard(
                             deleting.set(true);
                             match api::delete_user(user_id).await {
                                 Ok(()) => on_deleted.call(()),
-                                Err(e) => error_state.set(format!("Failed to delete user: {}", e)),
+                                Err(e) => error_state.set_server_error(&e),
                             }
                             deleting.set(false);
                             show_delete_confirm.set(false);
@@ -577,15 +565,12 @@ fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> 
                         onclick: move |_| {
                             let name = username.read().clone();
                             let dname = display_name.read().clone();
-                            let mail = {
-                                let e = email.read();
-                                if e.is_empty() { None } else { Some(e.clone()) }
-                            };
+                            let mail = email.read().clone();
                             spawn(async move {
                                 creating.set(true);
                                 match api::create_user(name, dname, mail).await {
                                     Ok(()) => on_created.call(()),
-                                    Err(e) => error_state.set(format!("Failed to create user: {}", e)),
+                                    Err(e) => error_state.set_server_error(&e),
                                 }
                                 creating.set(false);
                             });
@@ -742,7 +727,7 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                                     generating.set(true);
                                     match api::generate_provision_url(hours, uses).await {
                                         Ok(url) => provision_url.set(Some(url)),
-                                        Err(e) => error_state.set(format!("Failed to generate link: {}", e)),
+                                        Err(e) => error_state.set_server_error(&e),
                                     }
                                     generating.set(false);
                                 });

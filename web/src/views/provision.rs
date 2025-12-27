@@ -1,5 +1,5 @@
-use api::ResetLink;
 use dioxus::prelude::*;
+use types::ResetLink;
 
 #[component]
 pub fn Provision(token: String) -> Element {
@@ -41,7 +41,7 @@ pub fn Provision(token: String) -> Element {
         };
     }
 
-    match token_valid() {
+    match &*token_valid.read() {
         Some(Ok(_)) => {
             rsx! {
                 div { class: "provision-page",
@@ -102,14 +102,11 @@ pub fn Provision(token: String) -> Element {
                                         let token = token.clone();
                                         let name = username.read().clone();
                                         let dname = display_name.read().clone();
-                                        let mail = {
-                                            let e = email.read();
-                                            if e.is_empty() { None } else { Some(e.clone()) }
-                                        };
+                                        let email_address = email.read().clone();
                                         spawn(async move {
                                             submitting.set(true);
                                             error.set(None);
-                                            match api::complete_provision(token, name, dname, mail).await {
+                                            match api::complete_provision(token, name, dname, email_address).await {
                                                 Ok(link) => reset_link.set(Some(link)),
                                                 Err(e) => error.set(Some(e.to_string())),
                                             }

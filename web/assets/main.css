@@ -387,15 +387,36 @@ td {
 
 /* Error Banner (global) */
 .error-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
     margin-bottom: 1rem;
     background-color: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.3);
     border-radius: 0.375rem;
     color: #fca5a5;
+}
+
+.error-banner-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.error-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+}
+
+.error-banner-message {
+    flex: 1;
+    word-break: break-word;
+}
+
+.error-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .error-banner-close {
@@ -412,6 +433,55 @@ td {
 
 .error-banner-close:hover {
     opacity: 1;
+}
+
+/* Error details section */
+.error-details {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.error-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #f87171;
+    margin: 0.75rem 0 0.5rem 0;
+}
+
+/* Error chain */
+.error-chain-list {
+    margin: 0;
+    padding-left: 1.5rem;
+    list-style-type: decimal;
+}
+
+.error-chain-item {
+    font-size: 0.875rem;
+    padding: 0.25rem 0;
+    color: #fca5a5;
+}
+
+.error-chain-item:first-child {
+    font-weight: 500;
+}
+
+/* Backtrace */
+.error-backtrace-content {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 0.6875rem;
+    line-height: 1.6;
+    color: #fca5a5;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 /* Alerts */

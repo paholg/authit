@@ -1,62 +1,103 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Entry {
-    pub attrs: HashMap<String, Vec<String>>,
+use crate::err;
+
+#[derive(Deserialize)]
+pub struct RawPerson {
+    attrs: PersonAttrs,
 }
 
-impl Entry {
-    pub fn get_first(&self, attr: &str) -> Option<&str> {
-        self.attrs.get(attr)?.first().map(|s| s.as_str())
-    }
-
-    pub fn get_all(&self, attr: &str) -> Option<&Vec<String>> {
-        self.attrs.get(attr)
-    }
+#[derive(Deserialize)]
+struct PersonAttrs {
+    uuid: Vec<Uuid>,
+    name: Vec<String>,
+    displayname: Vec<String>,
+    mail: Vec<String>,
+    memberof: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Deserialize)]
+pub struct RawGroup {
+    attrs: GroupAttrs,
+}
+
+#[derive(Deserialize)]
+struct GroupAttrs {
+    uuid: Vec<Uuid>,
+    name: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Deserialize, Serialize)]
 pub struct Person {
-    pub uuid: String,
+    pub uuid: Uuid,
     pub name: String,
     pub display_name: String,
-    pub mail: Option<String>,
+    pub email_addresses: Vec<String>,
     pub groups: Vec<String>,
 }
 
-impl TryFrom<Entry> for Person {
-    type Error = &'static str;
+impl std::cmp::PartialOrd for Person {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.display_name.partial_cmp(&other.display_name)
+    }
+}
 
-    fn try_from(entry: Entry) -> Result<Self, Self::Error> {
+impl TryFrom<RawPerson> for Person {
+    type Error = crate::Error;
+
+    fn try_from(value: RawPerson) -> Result<Self, Self::Error> {
+        let attrs = value.attrs;
         Ok(Self {
-            uuid: entry.get_first("uuid").ok_or("missing uuid")?.to_string(),
-            name: entry.get_first("name").ok_or("missing name")?.to_string(),
-            display_name: entry
-                .get_first("displayname")
-                .unwrap_or("Unknown")
-                .to_string(),
-            mail: entry.get_first("mail").map(|s| s.to_string()),
-            groups: entry.get_all("memberof").cloned().unwrap_or_default(),
+            uuid: attrs
+                .uuid
+                .into_iter()
+                .next()
+                .ok_or_else(|| err!("missing uuid for person"))?,
+            name: attrs
+                .name
+                .into_iter()
+                .next()
+                .ok_or_else(|| err!("missing name for person"))?,
+            display_name: attrs
+                .displayname
+                .into_iter()
+                .next()
+                .ok_or_else(|| err!("missing displayname for person"))?,
+            email_addresses: attrs.mail,
+            groups: attrs.memberof,
         })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Deserialize, Serialize)]
 pub struct Group {
-    pub uuid: String,
+    pub uuid: Uuid,
     pub name: String,
-    pub members: Vec<String>,
 }
 
-impl TryFrom<Entry> for Group {
-    type Error = &'static str;
+impl std::cmp::PartialOrd for Group {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.name.partial_cmp(&other.name)
+    }
+}
 
-    fn try_from(entry: Entry) -> Result<Self, Self::Error> {
+impl TryFrom<RawGroup> for Group {
+    type Error = crate::Error;
+
+    fn try_from(value: RawGroup) -> Result<Self, Self::Error> {
+        let attrs = value.attrs;
         Ok(Self {
-            uuid: entry.get_first("uuid").ok_or("missing uuid")?.to_string(),
-            name: entry.get_first("name").ok_or("missing name")?.to_string(),
-            members: entry.get_all("member").cloned().unwrap_or_default(),
+            uuid: attrs
+                .uuid
+                .into_iter()
+                .next()
+                .ok_or_else(|| err!("missing uuid for group"))?,
+            name: attrs
+                .name
+                .into_iter()
+                .next()
+                .ok_or_else(|| err!("missing name for group"))?,
         })
     }
 }

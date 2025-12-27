@@ -1,22 +1,12 @@
-//! This crate contains fullstack server functions.
-//!
-//! Types are re-exported from the `types` crate for convenience.
-
-pub use types::{
-    Entry, Error, Group, Person, ProvisionLinkInfo, ResetLink, SESSION_COOKIE_NAME, UserSession,
-    decode_session, encode_session,
-};
-
 use dioxus::prelude::*;
-
-/// Convert our Error to ServerFnError, preserving the full message with backtrace.
-#[cfg(feature = "server")]
-fn to_server_error(e: Error) -> ServerFnError {
-    ServerFnError::new(e.message)
-}
+use types::{
+    ProvisionLinkInfo, ResetLink, UserSession,
+    kanidm::{Group, Person},
+};
+use uuid::Uuid;
 
 #[post("/api/current-user")]
-pub async fn get_current_user() -> Result<Option<UserSession>, ServerFnError> {
+pub async fn get_current_user() -> ServerFnResult<Option<UserSession>> {
     match server::get_session_from_cookie().await {
         Ok(session) => Ok(Some(session)),
         Err(_) => Ok(None),
@@ -24,111 +14,73 @@ pub async fn get_current_user() -> Result<Option<UserSession>, ServerFnError> {
 }
 
 #[post("/api/users")]
-pub async fn list_users() -> Result<Vec<Person>, ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    server::kanidm_client()
-        .map_err(to_server_error)?
-        .list_persons()
-        .await
-        .map_err(to_server_error)
+pub async fn list_users() -> ServerFnResult<Vec<Person>> {
+    server::require_admin_session().await?;
+    Ok(server::kanidm_client()?.list_persons().await?)
 }
 
 #[post("/api/groups")]
-pub async fn list_groups() -> Result<Vec<Group>, ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    server::kanidm_client()
-        .map_err(to_server_error)?
-        .list_groups()
-        .await
-        .map_err(to_server_error)
+pub async fn list_groups() -> ServerFnResult<Vec<Group>> {
+    server::require_admin_session().await?;
+    Ok(server::kanidm_client()?.list_groups().await?)
 }
 
 #[post("/api/users/groups")]
-pub async fn update_user_group(
-    user_id: String,
-    group_id: String,
-    add: bool,
-) -> Result<(), ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    let client = server::kanidm_client().map_err(to_server_error)?;
+pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> ServerFnResult<()> {
+    server::require_admin_session().await?;
+    let client = server::kanidm_client()?;
 
     if add {
-        client
-            .add_user_to_group(&group_id, &user_id)
-            .await
-            .map_err(to_server_error)
+        client.add_user_to_group(&group_id, &user_id).await?;
     } else {
-        client
-            .remove_user_from_group(&group_id, &user_id)
-            .await
-            .map_err(to_server_error)
+        client.remove_user_from_group(&group_id, &user_id).await?;
     }
+
+    Ok(())
 }
 
 #[post("/api/users/reset-link")]
-pub async fn generate_reset_link(user_id: String) -> Result<ResetLink, ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    server::kanidm_client()
-        .map_err(to_server_error)?
+pub async fn generate_reset_link(user_id: Uuid) -> ServerFnResult<ResetLink> {
+    server::require_admin_session().await?;
+    Ok(server::kanidm_client()?
         .generate_credential_reset_link(&user_id)
-        .await
-        .map_err(to_server_error)
+        .await?)
 }
 
 #[post("/api/users/delete")]
-pub async fn delete_user(user_id: String) -> Result<(), ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    server::kanidm_client()
-        .map_err(to_server_error)?
-        .delete_person(&user_id)
-        .await
-        .map_err(to_server_error)
+pub async fn delete_user(user_id: Uuid) -> ServerFnResult<()> {
+    server::require_admin_session().await?;
+    server::kanidm_client()?.delete_person(&user_id).await?;
+    Ok(())
 }
 
 #[post("/api/users/create")]
 pub async fn create_user(
     name: String,
     display_name: String,
-    mail: Option<String>,
-) -> Result<(), ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    server::kanidm_client()
-        .map_err(to_server_error)?
-        .create_person(&name, &display_name, mail.as_deref())
-        .await
-        .map_err(to_server_error)
+    email_address: String,
+) -> ServerFnResult<()> {
+    server::require_admin_session().await?;
+    server::kanidm_client()?
+        .create_person(&name, &display_name, &email_address)
+        .await?;
+    Ok(())
 }
 
 #[post("/api/provision/generate")]
 pub async fn generate_provision_url(
     duration_hours: u32,
     max_uses: Option<u32>,
-) -> Result<String, ServerFnError> {
-    server::require_admin_session()
-        .await
-        .map_err(to_server_error)?;
-    let token = server::create_provision_link(duration_hours, max_uses).map_err(to_server_error)?;
-    let base_url = server::get_request_base_url()
-        .await
-        .map_err(to_server_error)?;
+) -> ServerFnResult<String> {
+    server::require_admin_session().await?;
+    let token = server::create_provision_link(duration_hours, max_uses)?;
+    let base_url = server::get_request_base_url().await?;
     Ok(format!("{}/provision/{}", base_url, token))
 }
 
 #[post("/api/provision/verify")]
-pub async fn verify_provision(token: String) -> Result<ProvisionLinkInfo, ServerFnError> {
-    server::verify_provision_link(&token).map_err(to_server_error)
+pub async fn verify_provision(token: String) -> ServerFnResult<ProvisionLinkInfo> {
+    Ok(server::verify_provision_link(&token)?)
 }
 
 #[post("/api/provision/complete")]
@@ -136,25 +88,24 @@ pub async fn complete_provision(
     token: String,
     name: String,
     display_name: String,
-    mail: Option<String>,
-) -> Result<ResetLink, ServerFnError> {
-    // Consume the provision link (increments use count, checks limits)
-    let record = server::consume_provision_link(&token).map_err(to_server_error)?;
+    email_address: String,
+) -> ServerFnResult<ResetLink> {
+    let record = server::consume_provision_link(&token)?;
 
-    // Create the user - if this fails, restore the link so user can try again
-    let client = server::kanidm_client().map_err(to_server_error)?;
-    if let Err(e) = client
-        .create_person(&name, &display_name, mail.as_deref())
+    let client = server::kanidm_client()?;
+
+    match client
+        .create_person(&name, &display_name, &email_address)
         .await
     {
-        // Restore the link so user can retry
-        let _ = server::unconsume_provision_link(record);
-        return Err(to_server_error(e));
+        Ok(()) => {
+            let person = client.get_person(&name).await?;
+            Ok(client.generate_credential_reset_link(&person.uuid).await?)
+        }
+        Err(e) => {
+            // Restore the link so user can retry
+            let _ = server::unconsume_provision_link(record);
+            Err(e.into())
+        }
     }
-
-    // Generate credential reset link
-    client
-        .generate_credential_reset_link(&name)
-        .await
-        .map_err(to_server_error)
 }

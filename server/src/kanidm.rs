@@ -1,17 +1,45 @@
-use eyre::{Result, WrapErr};
-use reqwest::Client;
+use jiff::Timestamp;
+use reqwest::{Client, Method, RequestBuilder, Url};
 use secrecy::{ExposeSecret, SecretString};
-use types::{Entry, Error, Group, Person, ResetLink};
+use serde::de::DeserializeOwned;
+use serde_json::json;
+use types::{
+    ResetLink, Result,
+    kanidm::{Group, Person, RawGroup, RawPerson},
+};
+use uuid::Uuid;
+
+trait ReqwestExt {
+    async fn try_send<T: DeserializeOwned>(self) -> Result<T>;
+}
+
+impl ReqwestExt for RequestBuilder {
+    async fn try_send<T: DeserializeOwned>(self) -> Result<T> {
+        let response = self.send().await?.error_for_status()?;
+        let body = response.bytes().await?;
+
+        match serde_json::from_slice(&body) {
+            Ok(r) => Ok(r),
+            Err(error) => {
+                let body = String::from_utf8_lossy(&body);
+                // NOTE: We don't want to log these responses in production, but
+                // they can be useful for debugging.
+                // tracing::debug!(?error, ?body, "failed to parse response");
+                Err(error.into())
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct KanidmClient {
     client: Client,
-    base_url: String,
+    base_url: Url,
     token: SecretString,
 }
 
 impl KanidmClient {
-    pub fn new(base_url: String, token: SecretString) -> Self {
+    pub fn new(base_url: Url, token: SecretString) -> Self {
         Self {
             client: Client::new(),
             base_url,
@@ -19,241 +47,108 @@ impl KanidmClient {
         }
     }
 
-    pub async fn list_persons(&self) -> Result<Vec<Person>, Error> {
-        let url = format!("{}/v1/person", self.base_url);
+    fn request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        let url = self.base_url.join(path)?;
 
-        let response = self
+        Ok(self
             .client
-            .get(&url)
-            .bearer_auth(self.token.expose_secret())
-            .send()
-            .await
-            .wrap_err("failed to send request to Kanidm")?;
+            .request(method, url)
+            .bearer_auth(self.token.expose_secret()))
+    }
 
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!("Kanidm API error ({}): {}", status, body);
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
+    fn get(&self, path: impl AsRef<str>) -> Result<RequestBuilder> {
+        self.request(Method::GET, path.as_ref())
+    }
 
-        let entries: Vec<Entry> = response
-            .json()
-            .await
-            .wrap_err("failed to parse Kanidm response")?;
-        tracing::debug!("Raw person entries: {:?}", entries);
+    fn post(&self, path: impl AsRef<str>) -> Result<RequestBuilder> {
+        self.request(Method::POST, path.as_ref())
+    }
 
-        let persons: Vec<Person> = entries
+    fn delete(&self, path: impl AsRef<str>) -> Result<RequestBuilder> {
+        self.request(Method::DELETE, path.as_ref())
+    }
+
+    pub async fn list_persons(&self) -> Result<Vec<Person>> {
+        self.get("/v1/person")?
+            .try_send::<Vec<RawPerson>>()
+            .await?
             .into_iter()
-            .filter_map(|e| Person::try_from(e).ok())
-            .collect();
-
-        if let Some(first) = persons.first() {
-            tracing::info!(
-                "Sample person '{}' memberof groups: {:?}",
-                first.name,
-                first.groups
-            );
-        }
-
-        Ok(persons)
+            .map(Person::try_from)
+            .collect()
     }
 
-    pub async fn get_person(&self, id: &str) -> Result<Person, Error> {
-        let response = self
-            .client
-            .get(format!("{}/v1/person/{}", self.base_url, id))
-            .bearer_auth(self.token.expose_secret())
-            .send()
-            .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        let entry: Entry = response
-            .json()
-            .await
-            .wrap_err("failed to parse Kanidm response")?;
-        Person::try_from(entry).map_err(|e| eyre::eyre!("failed to parse person: {}", e).into())
+    pub async fn get_person(&self, id_or_name: &str) -> Result<Person> {
+        self.get(format!("/v1/person/{}", id_or_name))?
+            .try_send::<RawPerson>()
+            .await?
+            .try_into()
     }
 
-    pub async fn list_groups(&self) -> Result<Vec<Group>, Error> {
-        let response = self
-            .client
-            .get(format!("{}/v1/group", self.base_url))
-            .bearer_auth(self.token.expose_secret())
-            .send()
-            .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        let entries: Vec<Entry> = response
-            .json()
-            .await
-            .wrap_err("failed to parse Kanidm response")?;
-        tracing::debug!("Raw group entries: {:?}", entries);
-
-        let groups: Vec<Group> = entries
+    pub async fn list_groups(&self) -> Result<Vec<Group>> {
+        self.get("/v1/group")?
+            .try_send::<Vec<RawGroup>>()
+            .await?
             .into_iter()
-            .filter_map(|e| Group::try_from(e).ok())
-            .collect();
-
-        tracing::info!("Loaded {} groups", groups.len());
-        if let Some(first) = groups.first() {
-            tracing::info!("Sample group: name='{}', uuid='{}'", first.name, first.uuid);
-        }
-        Ok(groups)
+            .map(Group::try_from)
+            .collect()
     }
 
-    pub async fn add_user_to_group(&self, group_id: &str, user_id: &str) -> Result<(), Error> {
-        let response = self
-            .client
-            .post(format!(
-                "{}/v1/group/{}/_attr/member",
-                self.base_url, group_id
-            ))
-            .bearer_auth(self.token.expose_secret())
+    pub async fn add_user_to_group(&self, group_id: &Uuid, user_id: &Uuid) -> Result<()> {
+        self.post(format!("/v1/group/{group_id}/_attr/member"))?
             .json(&vec![user_id])
-            .send()
+            .try_send()
             .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        Ok(())
     }
 
-    pub async fn remove_user_from_group(&self, group_id: &str, user_id: &str) -> Result<(), Error> {
-        let response = self
-            .client
-            .delete(format!(
-                "{}/v1/group/{}/_attr/member",
-                self.base_url, group_id
-            ))
-            .bearer_auth(self.token.expose_secret())
+    pub async fn remove_user_from_group(&self, group_id: &Uuid, user_id: &Uuid) -> Result<()> {
+        self.delete(format!("/v1/group/{group_id}/_attr/member"))?
             .json(&vec![user_id])
-            .send()
+            .try_send()
             .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        Ok(())
     }
 
-    pub async fn delete_person(&self, id: &str) -> Result<(), Error> {
-        let response = self
-            .client
-            .delete(format!("{}/v1/person/{}", self.base_url, id))
-            .bearer_auth(self.token.expose_secret())
-            .send()
+    pub async fn delete_person(&self, user_id: &Uuid) -> Result<()> {
+        self.delete(format!("/v1/person/{user_id}"))?
+            .try_send()
             .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!("Delete person failed ({}): {}", status, body);
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        Ok(())
     }
 
     pub async fn create_person(
         &self,
-        name: &str,
+        user_name: &str,
         display_name: &str,
-        mail: Option<&str>,
-    ) -> Result<(), Error> {
-        let mut attrs = serde_json::json!({
-            "attrs": {
-                "name": [name],
-                "displayname": [display_name],
-            }
-        });
-
-        if let Some(email) = mail {
-            attrs["attrs"]["mail"] = serde_json::json!([email]);
-        }
-
-        let response = self
-            .client
-            .post(format!("{}/v1/person", self.base_url))
-            .bearer_auth(self.token.expose_secret())
-            .json(&attrs)
-            .send()
+        email_address: &str,
+    ) -> Result<()> {
+        self.post("/v1/person")?
+            .json(&json!({
+                "attrs": {
+                    "name": [user_name],
+                    "displayname": [display_name],
+                    "mail": [email_address]
+                }
+            }))
+            .try_send()
             .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!("Create person failed ({}): {}", status, body);
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        Ok(())
     }
 
-    pub async fn generate_credential_reset_link(&self, user_id: &str) -> Result<ResetLink, Error> {
-        let url = format!(
-            "{}/v1/person/{}/_credential/_update_intent",
-            self.base_url, user_id
-        );
-        tracing::info!("Generating credential reset link for user: {}", user_id);
-
-        let response = self
-            .client
-            .get(&url)
-            .bearer_auth(self.token.expose_secret())
-            .send()
-            .await
-            .wrap_err("failed to send request to Kanidm")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!("Credential reset failed ({}): {}", status, body);
-            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
-        }
-
-        let body = response.text().await.wrap_err("failed to read response")?;
-        tracing::info!("Credential reset response: {}", body);
-
+    pub async fn generate_credential_reset_link(&self, user_id: &Uuid) -> Result<ResetLink> {
         #[derive(serde::Deserialize)]
         struct TokenResponse {
-            token: SecretString,
-            expiry_time: u64,
+            token: String,
+            expiry_time: i64,
         }
 
-        let token_response: TokenResponse = serde_json::from_str(&body)
-            .wrap_err_with(|| format!("failed to parse token response: {}", body))?;
+        let response: TokenResponse = self
+            .get(format!("/v1/person/{user_id}/_credential/_update_intent"))?
+            .try_send()
+            .await?;
+
+        let mut url = self.base_url.join("/ui/reset")?;
+        url.query_pairs_mut().append_pair("token", &response.token);
 
         Ok(ResetLink {
-            url: format!(
-                "{}/ui/reset?token={}",
-                self.base_url,
-                token_response.token.expose_secret()
-            ),
-            expires_at: token_response.expiry_time,
+            url,
+            expires_at: Timestamp::new(response.expiry_time, 0)?,
         })
     }
 }

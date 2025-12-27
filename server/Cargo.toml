@@ -1,21 +1,21 @@
 [package]
-name = "server"
+name    = "server"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-types.workspace = true
-dioxus = { workspace = true, features = ["fullstack", "server"] }
-serde.workspace = true
+types.workspace      = true
+dioxus               = { workspace = true, features = ["fullstack", "server"] }
+serde.workspace      = true
 serde_json.workspace = true
-eyre.workspace = true
-secrecy.workspace = true
-tracing.workspace = true
-reqwest.workspace = true
-axum.workspace = true
-base64.workspace = true
-hmac.workspace = true
-sha2.workspace = true
-uuid = { workspace = true, features = ["v7"] }
-redb.workspace = true
-postcard.workspace = true
+jiff.workspace       = true
+secrecy.workspace    = true
+tracing.workspace    = true
+reqwest.workspace    = true
+axum.workspace       = true
+base64.workspace     = true
+hmac.workspace       = true
+sha2.workspace       = true
+uuid                 = { workspace = true, features = ["v7"] }
+redb.workspace       = true
+postcard.workspace   = true

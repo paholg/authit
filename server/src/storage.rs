@@ -1,10 +1,7 @@
-//! Provision link storage backed by redb.
-
-use eyre::{Result, WrapErr, eyre};
 use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use std::path::Path;
 use std::sync::OnceLock;
-use types::{ProvisionLinkInfo, ProvisionRecord};
+use types::{ProvisionLinkInfo, ProvisionRecord, Result, err};
 use uuid::Uuid;
 
 /// Table definition for provision links.
@@ -19,14 +16,12 @@ pub fn init_storage(path: &Path) -> Result<()> {
     let storage = ProvisionStorage::open(path)?;
     STORAGE
         .set(storage)
-        .map_err(|_| eyre!("storage already initialized"))
+        .map_err(|_| err!("storage already initialized"))
 }
 
 /// Get the global storage instance.
 pub fn storage() -> Result<&'static ProvisionStorage> {
-    STORAGE
-        .get()
-        .ok_or_else(|| eyre!("storage not initialized"))
+    STORAGE.get().ok_or_else(|| err!("storage not initialized"))
 }
 
 /// Provision link storage backed by redb.
@@ -39,12 +34,10 @@ impl ProvisionStorage {
     pub fn open(path: &Path) -> Result<Self> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .wrap_err_with(|| format!("failed to create data directory: {:?}", parent))?;
+            std::fs::create_dir_all(parent)?;
         }
 
-        let db = Database::create(path)
-            .wrap_err_with(|| format!("failed to open database: {:?}", path))?;
+        let db = Database::create(path)?;
 
         // Ensure table exists
         let write_txn = db.begin_write()?;
@@ -68,12 +61,11 @@ impl ProvisionStorage {
         let write_txn = self.db.begin_write()?;
         {
             let mut table = write_txn.open_table(PROVISION_LINKS)?;
-            let value = postcard::to_allocvec(&record).wrap_err("failed to serialize record")?;
+            let value = postcard::to_allocvec(&record)?;
             table.insert(id.as_bytes(), value.as_slice())?;
         }
         write_txn.commit()?;
 
-        // Opportunistic cleanup (~10% of creates)
         if rand_cleanup() {
             let _ = self.cleanup_expired();
         }
@@ -89,17 +81,16 @@ impl ProvisionStorage {
 
         let value = table
             .get(id.as_bytes())?
-            .ok_or_else(|| eyre!("provision link not found or has been revoked"))?;
+            .ok_or_else(|| err!("provision link not found or has been revoked"))?;
 
-        let record: ProvisionRecord =
-            postcard::from_bytes(value.value()).wrap_err("failed to deserialize record")?;
+        let record: ProvisionRecord = postcard::from_bytes(value.value())?;
 
         if record.is_expired() {
-            return Err(eyre!("provision link has expired"));
+            return Err(err!("provision link has expired"));
         }
 
         if record.is_exhausted() {
-            return Err(eyre!("provision link has reached maximum uses"));
+            return Err(err!("provision link has reached maximum uses"));
         }
 
         Ok(ProvisionLinkInfo::from(&record))
@@ -117,20 +108,20 @@ impl ProvisionStorage {
             let mut record: ProvisionRecord = {
                 let value = table
                     .get(id.as_bytes())?
-                    .ok_or_else(|| eyre!("provision link not found or has been revoked"))?;
-                postcard::from_bytes(value.value()).wrap_err("failed to deserialize record")?
+                    .ok_or_else(|| err!("provision link not found or has been revoked"))?;
+                postcard::from_bytes(value.value())?
             };
 
             if record.is_expired() {
                 // Clean up expired link
                 table.remove(id.as_bytes())?;
-                return Err(eyre!("provision link has expired"));
+                return Err(err!("provision link has expired"));
             }
 
             if record.is_exhausted() {
                 // Clean up exhausted link
                 table.remove(id.as_bytes())?;
-                return Err(eyre!("provision link has reached maximum uses"));
+                return Err(err!("provision link has reached maximum uses"));
             }
 
             // Increment use count
@@ -140,8 +131,7 @@ impl ProvisionStorage {
             if record.is_exhausted() {
                 table.remove(id.as_bytes())?;
             } else {
-                let serialized =
-                    postcard::to_allocvec(&record).wrap_err("failed to serialize record")?;
+                let serialized = postcard::to_allocvec(&record)?;
                 table.insert(id.as_bytes(), serialized.as_slice())?;
             }
 
@@ -163,8 +153,7 @@ impl ProvisionStorage {
             let mut restored = record;
             restored.use_count = restored.use_count.saturating_sub(1);
 
-            let serialized =
-                postcard::to_allocvec(&restored).wrap_err("failed to serialize record")?;
+            let serialized = postcard::to_allocvec(&restored)?;
             table.insert(restored.id.as_bytes(), serialized.as_slice())?;
         }
         write_txn.commit()?;

@@ -13,6 +13,7 @@ serde_json.workspace = true
 secrecy.workspace    = true
 tracing.workspace    = true
 jiff.workspace       = true
+uuid.workspace       = true
 
 # Server-only
 server  = { workspace = true, optional = true }
@@ -26,4 +27,4 @@ url     = { workspace = true, optional = true }
 [features]
 default = []
 web     = ["dioxus/web"]
-server  = ["dioxus/server", "ui/server", "api/server", "dep:server", "dep:axum", "dep:tokio", "dep:oauth2", "dep:reqwest", "dep:cookie", "dep:url"]
+server  = ["dioxus/server", "ui/server", "api/server", "types/server", "dep:server", "dep:axum", "dep:tokio", "dep:oauth2", "dep:reqwest", "dep:cookie", "dep:url"]

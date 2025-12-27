@@ -5,6 +5,7 @@ mod views;
 #[cfg(feature = "server")]
 mod auth_routes;
 
+use uuid::Uuid;
 use views::{Dashboard, Login, Provision, Users};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -20,7 +21,7 @@ pub enum Route {
         #[route("/users")]
         UserList {},
         #[route("/users/:user_id")]
-        UserDetail { user_id: String },
+        UserDetail { user_id: Uuid },
 }
 
 impl Route {
@@ -28,7 +29,7 @@ impl Route {
         Route::UserList {}
     }
 
-    pub fn user_detail(user_id: String) -> Self {
+    pub fn user_detail(user_id: Uuid) -> Self {
         Route::UserDetail { user_id }
     }
 }
@@ -39,7 +40,7 @@ fn UserList() -> Element {
 }
 
 #[component]
-fn UserDetail(user_id: String) -> Element {
+fn UserDetail(user_id: Uuid) -> Element {
     rsx! { Users { user_id: Some(user_id) } }
 }
 
@@ -96,13 +97,75 @@ fn NavLink(to: Route, children: Element) -> Element {
     }
 }
 
+/// Structured error information for display
+#[derive(Clone, Debug, Default)]
+pub struct ErrorInfo {
+    pub message: String,
+    pub chain: Vec<String>,
+    pub backtrace: Option<String>,
+}
+
+impl ErrorInfo {
+    /// Parse a ServerFnError to extract structured error info
+    pub fn from_server_error(err: &ServerFnError) -> Self {
+        match err {
+            ServerFnError::ServerError { message, details, .. } => {
+                if let Some(details) = details {
+                    let chain = details
+                        .get("chain")
+                        .and_then(|c| c.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_else(|| vec![message.clone()]);
+                    let backtrace = details
+                        .get("backtrace")
+                        .and_then(|b| b.as_str())
+                        .map(String::from);
+                    Self {
+                        message: message.clone(),
+                        chain,
+                        backtrace,
+                    }
+                } else {
+                    Self {
+                        message: message.clone(),
+                        chain: vec![message.clone()],
+                        backtrace: None,
+                    }
+                }
+            }
+            other => Self {
+                message: other.to_string(),
+                chain: vec![other.to_string()],
+                backtrace: None,
+            },
+        }
+    }
+}
+
 /// Global error state - use `use_error()` to access
 #[derive(Clone, Copy)]
-pub struct ErrorState(Signal<Option<String>>);
+pub struct ErrorState(Signal<Option<ErrorInfo>>);
 
 impl ErrorState {
+    pub fn set_info(&mut self, error: ErrorInfo) {
+        self.0.set(Some(error));
+    }
+
     pub fn set(&mut self, error: impl Into<String>) {
-        self.0.set(Some(error.into()));
+        let msg = error.into();
+        self.0.set(Some(ErrorInfo {
+            message: msg.clone(),
+            chain: vec![msg],
+            backtrace: None,
+        }));
+    }
+
+    pub fn set_server_error(&mut self, err: &ServerFnError) {
+        self.0.set(Some(ErrorInfo::from_server_error(err)));
     }
 
     pub fn clear(&mut self) {
@@ -115,19 +178,70 @@ pub fn use_error() -> ErrorState {
     use_context::<ErrorState>()
 }
 
+/// Filter backtrace to only show lines from this codebase
+fn filter_backtrace(backtrace: &str) -> String {
+    backtrace
+        .lines()
+        .filter(|line| {
+            // Keep lines that reference our codebase
+            line.contains("/authit/") || line.contains("authit::")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[component]
 fn ErrorBanner() -> Element {
     let mut error_state = use_context::<ErrorState>();
     let error = error_state.0.read();
 
     if let Some(err) = error.as_ref() {
+        let has_chain = err.chain.len() > 1;
+        let filtered_backtrace = err.backtrace.as_ref().map(|bt| filter_backtrace(bt));
+        let has_backtrace = filtered_backtrace
+            .as_ref()
+            .map(|bt| !bt.is_empty())
+            .unwrap_or(false);
+
         rsx! {
             div { class: "error-banner",
-                span { "{err}" }
-                button {
-                    class: "error-banner-close",
-                    onclick: move |_| error_state.clear(),
-                    "×"
+                div { class: "error-banner-content",
+                    div { class: "error-banner-header",
+                        span { class: "error-banner-message", "{err.message}" }
+                        div { class: "error-banner-actions",
+                            button {
+                                class: "error-banner-close",
+                                onclick: move |_| error_state.clear(),
+                                "×"
+                            }
+                        }
+                    }
+                    if has_chain || has_backtrace {
+                        div { class: "error-details",
+                            if has_chain {
+                                div { class: "error-chain",
+                                    h4 { class: "error-section-title", "Error Chain" }
+                                    ol { class: "error-chain-list",
+                                        for (i, msg) in err.chain.iter().enumerate() {
+                                            li {
+                                                key: "{i}",
+                                                class: "error-chain-item",
+                                                "{msg}"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(backtrace) = &filtered_backtrace {
+                                if has_backtrace {
+                                    div { class: "error-backtrace",
+                                        h4 { class: "error-section-title", "Backtrace" }
+                                        pre { class: "error-backtrace-content", "{backtrace}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -140,10 +254,10 @@ fn ErrorBanner() -> Element {
 fn AuthenticatedLayout() -> Element {
     let user = use_server_future(api::get_current_user)?;
 
-    match user() {
+    match &*user.read() {
         Some(Ok(Some(session))) => {
-            let session_clone = session.clone();
-            use_context_provider(|| session);
+            let session_clone: types::UserSession = session.clone();
+            use_context_provider(|| session_clone.clone());
             use_context_provider(|| ErrorState(Signal::new(None)));
             let initial = session_clone
                 .display_name
