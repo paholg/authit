@@ -28,7 +28,7 @@ struct GroupAttrs {
     name: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Person {
     pub uuid: Uuid,
     pub name: String,
@@ -39,7 +39,13 @@ pub struct Person {
 
 impl std::cmp::PartialOrd for Person {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.display_name.partial_cmp(&other.display_name)
+        Some(self.cmp(other))
+    }
+}
+
+impl std::cmp::Ord for Person {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.display_name.cmp(&other.display_name)
     }
 }
 
@@ -70,7 +76,7 @@ impl TryFrom<RawPerson> for Person {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Group {
     pub uuid: Uuid,
     pub name: String,
@@ -78,7 +84,13 @@ pub struct Group {
 
 impl std::cmp::PartialOrd for Group {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.name.partial_cmp(&other.name)
+        Some(self.cmp(other))
+    }
+}
+
+impl std::cmp::Ord for Group {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&other.name)
     }
 }
 

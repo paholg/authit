@@ -1,22 +1,26 @@
 [package]
-name    = "server"
-version = "0.1.0"
 edition = "2024"
+name = "server"
+version = "0.1.0"
 
 [dependencies]
-config               = { version = "0.15.19", features = ["toml"] }
-types.workspace      = true
-dioxus               = { workspace = true, features = ["fullstack", "server"] }
-serde.workspace      = true
+axum.workspace = true
+base64.workspace = true
+config = { version = "0.15.19", features = ["toml"] }
+cookie.workspace = true
+dioxus = { workspace = true, features = ["fullstack", "server"] }
+hmac.workspace = true
+jiff.workspace = true
+oauth2.workspace = true
+postcard.workspace = true
+redb.workspace = true
+reqwest.workspace = true
+secrecy.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-jiff.workspace       = true
-secrecy.workspace    = true
-tracing.workspace    = true
-reqwest.workspace    = true
-axum.workspace       = true
-base64.workspace     = true
-hmac.workspace       = true
-sha2.workspace       = true
-uuid                 = { workspace = true, features = ["v7"] }
-redb.workspace       = true
-postcard.workspace   = true
+sha2.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+types.workspace = true
+url.workspace = true
+uuid = { workspace = true, features = ["v7"] }

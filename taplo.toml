@@ -1,0 +1,8 @@
+# Exclude cargo registry for CI
+exclude = ["**/.cargo/registry/**"]
+
+[formatting]
+align_comments = false
+array_auto_collapse = false
+array_auto_expand = false
+reorder_keys = true

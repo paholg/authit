@@ -2,9 +2,6 @@ use dioxus::prelude::*;
 
 mod views;
 
-#[cfg(feature = "server")]
-mod auth_routes;
-
 use uuid::Uuid;
 use views::{Dashboard, Login, Provision, Users};
 
@@ -46,20 +43,11 @@ fn UserDetail(user_id: Uuid) -> Element {
 
 fn main() {
     #[cfg(feature = "server")]
-    {
-        use auth_routes::{AuthState, auth_router};
+    dioxus::serve(|| async move {
+        let routes = server::init();
 
-        dioxus::serve(|| async move {
-            // Initialize storage for provision links
-            server::init().expect("Failed to initialize server storage");
-
-            let auth_state = AuthState::new().expect("Failed to create auth state");
-
-            let auth_routes = auth_router(auth_state);
-
-            Ok(dioxus::server::router(App).merge(auth_routes))
-        });
-    }
+        Ok(dioxus::server::router(App).merge(routes))
+    });
 
     #[cfg(all(feature = "web", not(feature = "server")))]
     dioxus::launch(App);

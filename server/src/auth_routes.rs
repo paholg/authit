@@ -1,5 +1,3 @@
-#![cfg(feature = "server")]
-
 use axum::{
     Router,
     extract::{Query, State},
@@ -13,7 +11,6 @@ use oauth2::{
     RedirectUrl, Scope, StandardErrorResponse, TokenUrl, basic::BasicClient,
 };
 use secrecy::ExposeSecret;
-use server::CONFIG;
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -21,6 +18,8 @@ use std::{
 };
 use tokio::sync::RwLock;
 use types::{SESSION_COOKIE_NAME, UserSession, encode_session};
+
+use crate::CONFIG;
 
 type ConfiguredClient = oauth2::Client<
     StandardErrorResponse<oauth2::basic::BasicErrorResponseType>,

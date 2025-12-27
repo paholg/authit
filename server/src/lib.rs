@@ -1,7 +1,9 @@
+mod auth_routes;
 mod config;
 mod kanidm;
 pub mod storage;
 
+use axum::Router;
 use axum::http::HeaderMap;
 use base64::prelude::*;
 use dioxus::fullstack::FullstackContext;
@@ -14,15 +16,16 @@ use types::{
 };
 use uuid::Uuid;
 
+use crate::auth_routes::{AuthState, auth_router};
 pub use crate::config::CONFIG;
 pub use crate::kanidm::KANIDM_CLIENT;
+use crate::storage::STORAGE;
 
 type HmacSha256 = Hmac<Sha256>;
 
-pub fn init() -> Result<()> {
-    let db_path = CONFIG.data_dir.join("provision.redb");
-    storage::init_storage(&db_path)?;
-    Ok(())
+pub fn init() -> Router {
+    let auth_state = AuthState::new().unwrap();
+    auth_router(auth_state)
 }
 
 pub async fn get_request_base_url() -> Result<String> {
@@ -82,7 +85,7 @@ pub async fn require_admin_session() -> Result<UserSession> {
 }
 
 pub fn create_provision_link(duration_hours: u32, max_uses: Option<u32>) -> Result<String> {
-    let record = storage::storage()?.create_link(duration_hours as u64 * 3600, max_uses)?;
+    let record = STORAGE.create_link(duration_hours as u64 * 3600, max_uses)?;
 
     // Sign the UUID for URL tamper-resistance
     sign_uuid(record.id)
@@ -93,7 +96,7 @@ pub fn create_provision_link(duration_hours: u32, max_uses: Option<u32>) -> Resu
 pub fn verify_provision_link(signed_token: &str) -> Result<ProvisionLinkInfo> {
     let uuid = extract_uuid(signed_token)?;
 
-    storage::storage()?.verify_link(uuid)
+    STORAGE.verify_link(uuid)
 }
 
 /// Consume a provision link (increment use count).
@@ -101,12 +104,12 @@ pub fn verify_provision_link(signed_token: &str) -> Result<ProvisionLinkInfo> {
 pub fn consume_provision_link(signed_token: &str) -> Result<ProvisionRecord> {
     let uuid = extract_uuid(signed_token)?;
 
-    storage::storage()?.consume_link(uuid)
+    STORAGE.consume_link(uuid)
 }
 
 /// Restore a consumed provision link (e.g., if user creation failed).
 pub fn unconsume_provision_link(record: ProvisionRecord) -> Result<()> {
-    storage::storage()?.unconsume_link(record)
+    STORAGE.unconsume_link(record)
 }
 
 fn sign_uuid(id: Uuid) -> Result<String> {

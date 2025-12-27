@@ -1,28 +1,20 @@
 use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
-use std::path::Path;
-use std::sync::OnceLock;
+use std::{path::Path, sync::LazyLock};
 use types::{ProvisionLinkInfo, ProvisionRecord, Result, err};
 use uuid::Uuid;
+
+use crate::CONFIG;
 
 /// Table definition for provision links.
 /// Key: UUID bytes (16 bytes)
 /// Value: postcard-serialized ProvisionRecord
 const PROVISION_LINKS: TableDefinition<&[u8; 16], &[u8]> = TableDefinition::new("provision_links");
 
-static STORAGE: OnceLock<ProvisionStorage> = OnceLock::new();
+pub static STORAGE: LazyLock<ProvisionStorage> = LazyLock::new(|| {
+    let path = CONFIG.data_dir.join("provision.redb");
 
-/// Initialize the global storage instance.
-pub fn init_storage(path: &Path) -> Result<()> {
-    let storage = ProvisionStorage::open(path)?;
-    STORAGE
-        .set(storage)
-        .map_err(|_| err!("storage already initialized"))
-}
-
-/// Get the global storage instance.
-pub fn storage() -> Result<&'static ProvisionStorage> {
-    STORAGE.get().ok_or_else(|| err!("storage not initialized"))
-}
+    ProvisionStorage::open(&path).unwrap()
+});
 
 /// Provision link storage backed by redb.
 pub struct ProvisionStorage {

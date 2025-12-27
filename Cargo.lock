@@ -3203,9 +3203,11 @@ dependencies = [
  "axum",
  "base64",
  "config",
+ "cookie",
  "dioxus",
  "hmac",
  "jiff",
+ "oauth2",
  "postcard",
  "redb",
  "reqwest",
@@ -3213,8 +3215,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
  "tracing",
  "types",
+ "url",
  "uuid",
 ]
 
@@ -4082,21 +4086,15 @@ name = "web"
 version = "0.1.0"
 dependencies = [
  "api",
- "axum",
- "cookie",
  "dioxus",
  "jiff",
- "oauth2",
- "reqwest",
  "secrecy",
  "serde",
  "serde_json",
  "server",
- "tokio",
  "tracing",
  "types",
  "ui",
- "url",
  "uuid",
 ]
 
