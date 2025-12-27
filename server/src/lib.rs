@@ -12,11 +12,11 @@ pub use config::Config;
 pub use kanidm::KanidmClient;
 
 use base64::prelude::*;
-use eyre::{eyre, WrapErr};
+use eyre::{WrapErr, eyre};
 use hmac::{Hmac, Mac};
 use secrecy::ExposeSecret;
 use sha2::Sha256;
-use types::{decode_session, Error, ProvisionToken, UserSession, SESSION_COOKIE_NAME};
+use types::{Error, ProvisionToken, SESSION_COOKIE_NAME, UserSession, decode_session};
 
 type HmacSha256 = Hmac<Sha256>;
 

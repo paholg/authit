@@ -3,8 +3,8 @@
 //! Types are re-exported from the `types` crate for convenience.
 
 pub use types::{
-    decode_session, encode_session, Entry, Error, Group, Person, ProvisionToken, ResetLink,
-    UserSession, SESSION_COOKIE_NAME,
+    Entry, Error, Group, Person, ProvisionToken, ResetLink, SESSION_COOKIE_NAME, UserSession,
+    decode_session, encode_session,
 };
 
 use dioxus::prelude::*;
@@ -25,7 +25,9 @@ pub async fn get_current_user() -> Result<Option<UserSession>, ServerFnError> {
 
 #[post("/api/users")]
 pub async fn list_users() -> Result<Vec<Person>, ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .list_persons()
@@ -35,7 +37,9 @@ pub async fn list_users() -> Result<Vec<Person>, ServerFnError> {
 
 #[post("/api/groups")]
 pub async fn list_groups() -> Result<Vec<Group>, ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .list_groups()
@@ -49,7 +53,9 @@ pub async fn update_user_group(
     group_id: String,
     add: bool,
 ) -> Result<(), ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     let client = server::kanidm_client().map_err(to_server_error)?;
 
     if add {
@@ -67,7 +73,9 @@ pub async fn update_user_group(
 
 #[post("/api/users/reset-link")]
 pub async fn generate_reset_link(user_id: String) -> Result<ResetLink, ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .generate_credential_reset_link(&user_id)
@@ -77,7 +85,9 @@ pub async fn generate_reset_link(user_id: String) -> Result<ResetLink, ServerFnE
 
 #[post("/api/users/delete")]
 pub async fn delete_user(user_id: String) -> Result<(), ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .delete_person(&user_id)
@@ -91,7 +101,9 @@ pub async fn create_user(
     display_name: String,
     mail: Option<String>,
 ) -> Result<(), ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .create_person(&name, &display_name, mail.as_deref())
@@ -101,9 +113,13 @@ pub async fn create_user(
 
 #[post("/api/provision/generate")]
 pub async fn generate_provision_url(duration_hours: u32) -> Result<String, ServerFnError> {
-    server::require_admin_session().await.map_err(to_server_error)?;
+    server::require_admin_session()
+        .await
+        .map_err(to_server_error)?;
     let token = server::create_provision_token(duration_hours).map_err(to_server_error)?;
-    let base_url = server::get_request_base_url().await.map_err(to_server_error)?;
+    let base_url = server::get_request_base_url()
+        .await
+        .map_err(to_server_error)?;
     Ok(format!("{}/provision/{}", base_url, token))
 }
 

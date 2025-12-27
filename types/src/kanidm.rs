@@ -37,10 +37,7 @@ impl TryFrom<Entry> for Person {
                 .unwrap_or("Unknown")
                 .to_string(),
             mail: entry.get_first("mail").map(|s| s.to_string()),
-            groups: entry
-                .get_all("memberof")
-                .cloned()
-                .unwrap_or_default(),
+            groups: entry.get_all("memberof").cloned().unwrap_or_default(),
         })
     }
 }

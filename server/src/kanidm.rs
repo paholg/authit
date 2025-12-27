@@ -78,8 +78,7 @@ impl KanidmClient {
             .json()
             .await
             .wrap_err("failed to parse Kanidm response")?;
-        Person::try_from(entry)
-            .map_err(|e| eyre::eyre!("failed to parse person: {}", e).into())
+        Person::try_from(entry).map_err(|e| eyre::eyre!("failed to parse person: {}", e).into())
     }
 
     pub async fn list_groups(&self) -> Result<Vec<Group>, Error> {

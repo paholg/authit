@@ -1,5 +1,5 @@
+use crate::{Route, use_error};
 use api::{Group, Person, ResetLink};
-use crate::{use_error, Route};
 use dioxus::document::eval;
 use dioxus::prelude::*;
 
@@ -168,9 +168,7 @@ fn ExpiryTime(expires_at: u64) -> Element {
 }
 
 fn is_builtin_group(name: &str) -> bool {
-    name.starts_with("idm_")
-        || name.starts_with("system_")
-        || name.starts_with("builtin_")
+    name.starts_with("idm_") || name.starts_with("system_") || name.starts_with("builtin_")
 }
 
 /// Check if user is member of group

@@ -1,31 +1,34 @@
 #![cfg(feature = "server")]
 
-use types::{encode_session, UserSession, SESSION_COOKIE_NAME};
-use server::Config;
 use axum::{
+    Router,
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect, Response},
     routing::get,
-    Router,
 };
 use cookie::{Cookie, SameSite};
 use oauth2::{
-    basic::BasicClient, AuthUrl, ClientId, CsrfToken, EndpointNotSet, EndpointSet,
-    PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, StandardErrorResponse, TokenUrl,
+    AuthUrl, ClientId, CsrfToken, EndpointNotSet, EndpointSet, PkceCodeChallenge, PkceCodeVerifier,
+    RedirectUrl, Scope, StandardErrorResponse, TokenUrl, basic::BasicClient,
 };
 use secrecy::ExposeSecret;
+use server::Config;
 use std::{
     collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::RwLock;
+use types::{SESSION_COOKIE_NAME, UserSession, encode_session};
 
 type ConfiguredClient = oauth2::Client<
     StandardErrorResponse<oauth2::basic::BasicErrorResponseType>,
     oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
-    oauth2::StandardTokenIntrospectionResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
+    oauth2::StandardTokenIntrospectionResponse<
+        oauth2::EmptyExtraTokenFields,
+        oauth2::basic::BasicTokenType,
+    >,
     oauth2::StandardRevocableToken,
     StandardErrorResponse<oauth2::RevocationErrorResponseType>,
     EndpointSet,
@@ -137,7 +140,10 @@ async fn callback(
             ("code", &params.code),
             ("redirect_uri", &state.config.oauth_redirect_uri),
             ("client_id", &state.config.oauth_client_id),
-            ("client_secret", state.config.oauth_client_secret.expose_secret()),
+            (
+                "client_secret",
+                state.config.oauth_client_secret.expose_secret(),
+            ),
             ("code_verifier", pkce_verifier.secret()),
         ])
         .send()

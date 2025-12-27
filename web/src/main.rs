@@ -49,13 +49,12 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 fn main() {
     #[cfg(feature = "server")]
     {
-        use auth_routes::{auth_router, AuthState};
+        use auth_routes::{AuthState, auth_router};
         use server::Config;
 
         dioxus::serve(|| async move {
             let config = Config::from_env().expect("Failed to load configuration");
-            let auth_state =
-                AuthState::new(config).expect("Failed to create auth state");
+            let auth_state = AuthState::new(config).expect("Failed to create auth state");
 
             let auth_routes = auth_router(auth_state);
 
