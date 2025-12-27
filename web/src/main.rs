@@ -43,7 +43,7 @@ fn UserDetail(user_id: String) -> Element {
     rsx! { Users { user_id: Some(user_id) } }
 }
 
-const FAVICON: Asset = asset!("/assets/favicon.ico");
+const FAVICON: Asset = asset!("/assets/favicon.svg");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 fn main() {
@@ -70,10 +70,30 @@ fn main() {
 #[component]
 fn App() -> Element {
     rsx! {
+        document::Title { "AuthIt!" }
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
 
         Router::<Route> {}
+    }
+}
+
+#[component]
+fn NavLink(to: Route, children: Element) -> Element {
+    let current_route: Route = use_route();
+    let is_active = match (&current_route, &to) {
+        (Route::Dashboard {}, Route::Dashboard {}) => true,
+        (Route::UserList {}, Route::UserList {}) => true,
+        (Route::UserDetail { .. }, Route::UserList {}) => true,
+        _ => false,
+    };
+
+    rsx! {
+        Link {
+            to,
+            class: if is_active { "active" },
+            {children}
+        }
     }
 }
 
@@ -139,11 +159,11 @@ fn AuthenticatedLayout() -> Element {
                     // Sidebar
                     aside { class: "sidebar",
                         div { class: "sidebar-header",
-                            span { class: "sidebar-logo", "Authit" }
+                            span { class: "sidebar-logo", "AuthIt!" }
                         }
                         nav { class: "sidebar-nav",
-                            Link { to: Route::Dashboard {}, "Dashboard" }
-                            Link { to: Route::users(), "Users" }
+                            NavLink { to: Route::Dashboard {}, "Dashboard" }
+                            NavLink { to: Route::users(), "Users" }
                         }
                         div { class: "sidebar-footer",
                             div { class: "sidebar-user",
