@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use jiff::Timestamp;
 use reqwest::{Client, Method, RequestBuilder, Url};
 use secrecy::{ExposeSecret, SecretString};
@@ -8,6 +10,8 @@ use types::{
     kanidm::{Group, Person, RawGroup, RawPerson},
 };
 use uuid::Uuid;
+
+use crate::config::CONFIG;
 
 trait ReqwestExt {
     async fn try_send<T: DeserializeOwned>(self) -> Result<T>;
@@ -21,15 +25,17 @@ impl ReqwestExt for RequestBuilder {
         match serde_json::from_slice(&body) {
             Ok(r) => Ok(r),
             Err(error) => {
-                let body = String::from_utf8_lossy(&body);
                 // NOTE: We don't want to log these responses in production, but
                 // they can be useful for debugging.
+                // let body = String::from_utf8_lossy(&body);
                 // tracing::debug!(?error, ?body, "failed to parse response");
                 Err(error.into())
             }
         }
     }
 }
+pub static KANIDM_CLIENT: LazyLock<KanidmClient> =
+    LazyLock::new(|| KanidmClient::new(CONFIG.kanidm_url.clone(), CONFIG.kanidm_token.clone()));
 
 #[derive(Clone)]
 pub struct KanidmClient {
@@ -39,7 +45,7 @@ pub struct KanidmClient {
 }
 
 impl KanidmClient {
-    pub fn new(base_url: Url, token: SecretString) -> Self {
+    fn new(base_url: Url, token: SecretString) -> Self {
         Self {
             client: Client::new(),
             base_url,

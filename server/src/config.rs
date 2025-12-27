@@ -1,9 +1,13 @@
 use reqwest::Url;
 use secrecy::SecretString;
+use serde::Deserialize;
 use std::env;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
-#[derive(Clone)]
+pub static CONFIG: LazyLock<Config> = LazyLock::new(|| Config::new().unwrap());
+
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub kanidm_url: Url,
     pub kanidm_token: SecretString,
@@ -16,18 +20,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_env() -> types::Result<Self> {
-        Ok(Self {
-            kanidm_url: Url::parse(&env::var("AUTHIT_KANIDM_URL")?)?,
-            kanidm_token: env::var("AUTHIT_KANIDM_TOKEN")?.into(),
-            oauth_client_id: env::var("AUTHIT_OAUTH_CLIENT_ID")?,
-            oauth_client_secret: env::var("AUTHIT_OAUTH_CLIENT_SECRET")?.into(),
-            oauth_redirect_uri: env::var("AUTHIT_OAUTH_REDIRECT_URI")?,
-            session_secret: env::var("AUTHIT_SESSION_SECRET")?.into(),
-            admin_group: env::var("AUTHIT_ADMIN_GROUP").unwrap_or_else(|_| "authit_admin".into()),
-            data_dir: env::var("AUTHIT_DATA_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/var/lib/authit")),
-        })
+    fn new() -> types::Result<Self> {
+        let cfg = config::Config::builder().add_source(config::Environment::with_prefix("AUTHIT"));
+
+        let cfg = if let Ok(path) = env::var("AUTHIT_CONFIG_PATH") {
+            cfg.add_source(config::File::with_name(&path))
+        } else {
+            cfg
+        };
+
+        Ok(cfg.build()?.try_deserialize()?)
     }
 }

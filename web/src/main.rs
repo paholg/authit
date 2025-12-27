@@ -48,14 +48,12 @@ fn main() {
     #[cfg(feature = "server")]
     {
         use auth_routes::{AuthState, auth_router};
-        use server::Config;
 
         dioxus::serve(|| async move {
             // Initialize storage for provision links
             server::init().expect("Failed to initialize server storage");
 
-            let config = Config::from_env().expect("Failed to load configuration");
-            let auth_state = AuthState::new(config).expect("Failed to create auth state");
+            let auth_state = AuthState::new().expect("Failed to create auth state");
 
             let auth_routes = auth_router(auth_state);
 
@@ -109,7 +107,9 @@ impl ErrorInfo {
     /// Parse a ServerFnError to extract structured error info
     pub fn from_server_error(err: &ServerFnError) -> Self {
         match err {
-            ServerFnError::ServerError { message, details, .. } => {
+            ServerFnError::ServerError {
+                message, details, ..
+            } => {
                 if let Some(details) = details {
                     let chain = details
                         .get("chain")

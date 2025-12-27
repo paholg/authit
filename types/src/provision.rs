@@ -5,7 +5,6 @@ use uuid::Uuid;
 /// This is the signed token format sent to clients.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProvisionToken {
-    /// Unique identifier for tracking token usage (UUIDv7)
     pub id: Uuid,
     /// Unix timestamp (seconds) when this token expires
     pub expires_at: u64,

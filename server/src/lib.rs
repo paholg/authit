@@ -2,9 +2,6 @@ mod config;
 mod kanidm;
 pub mod storage;
 
-pub use config::Config;
-pub use kanidm::KanidmClient;
-
 use axum::http::HeaderMap;
 use base64::prelude::*;
 use dioxus::fullstack::FullstackContext;
@@ -17,11 +14,13 @@ use types::{
 };
 use uuid::Uuid;
 
+pub use crate::config::CONFIG;
+pub use crate::kanidm::KANIDM_CLIENT;
+
 type HmacSha256 = Hmac<Sha256>;
 
 pub fn init() -> Result<()> {
-    let config = Config::from_env()?;
-    let db_path = config.data_dir.join("provision.redb");
+    let db_path = CONFIG.data_dir.join("provision.redb");
     storage::init_storage(&db_path)?;
     Ok(())
 }
@@ -69,20 +68,12 @@ pub async fn get_session_from_cookie() -> Result<UserSession> {
 /// Require an authenticated admin session, returning the session if valid.
 pub async fn require_admin_session() -> Result<UserSession> {
     let session = get_session_from_cookie().await?;
-    let config = Config::from_env()?;
 
-    tracing::info!(
-        "Admin check - user: {}, groups: {:?}, required: {}",
-        session.username,
-        session.groups,
-        config.admin_group
-    );
-
-    if !session.is_in_group(&config.admin_group) {
+    if !session.is_in_group(&CONFIG.admin_group) {
         return Err(err!(
             "access denied: user '{}' must be in '{}' group",
             session.username,
-            config.admin_group
+            CONFIG.admin_group
         )
         .into());
     }
@@ -90,25 +81,17 @@ pub async fn require_admin_session() -> Result<UserSession> {
     Ok(session)
 }
 
-pub fn kanidm_client() -> Result<KanidmClient> {
-    let config = Config::from_env()?;
-    Ok(KanidmClient::new(config.kanidm_url, config.kanidm_token))
-}
-
 pub fn create_provision_link(duration_hours: u32, max_uses: Option<u32>) -> Result<String> {
-    let config = Config::from_env()?;
-
     let record = storage::storage()?.create_link(duration_hours as u64 * 3600, max_uses)?;
 
     // Sign the UUID for URL tamper-resistance
-    sign_uuid(record.id, &config)
+    sign_uuid(record.id)
 }
 
 /// Verify a provision link without consuming it.
 /// Returns link info if valid.
 pub fn verify_provision_link(signed_token: &str) -> Result<ProvisionLinkInfo> {
-    let config = Config::from_env()?;
-    let uuid = extract_uuid(signed_token, &config)?;
+    let uuid = extract_uuid(signed_token)?;
 
     storage::storage()?.verify_link(uuid)
 }
@@ -116,8 +99,7 @@ pub fn verify_provision_link(signed_token: &str) -> Result<ProvisionLinkInfo> {
 /// Consume a provision link (increment use count).
 /// Returns the record for potential rollback, error if expired/exhausted.
 pub fn consume_provision_link(signed_token: &str) -> Result<ProvisionRecord> {
-    let config = Config::from_env()?;
-    let uuid = extract_uuid(signed_token, &config)?;
+    let uuid = extract_uuid(signed_token)?;
 
     storage::storage()?.consume_link(uuid)
 }
@@ -127,19 +109,17 @@ pub fn unconsume_provision_link(record: ProvisionRecord) -> Result<()> {
     storage::storage()?.unconsume_link(record)
 }
 
-/// Sign a UUID to create a tamper-resistant token.
-fn sign_uuid(id: Uuid, config: &Config) -> Result<String> {
+fn sign_uuid(id: Uuid) -> Result<String> {
     let uuid_b64 = BASE64_URL_SAFE_NO_PAD.encode(id.as_bytes());
 
-    let mut mac = HmacSha256::new_from_slice(config.session_secret.expose_secret().as_bytes())?;
+    let mut mac = HmacSha256::new_from_slice(CONFIG.session_secret.expose_secret().as_bytes())?;
     mac.update(uuid_b64.as_bytes());
     let signature = BASE64_URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
 
     Ok(format!("{}.{}", uuid_b64, signature))
 }
 
-/// Extract and verify a UUID from a signed token.
-fn extract_uuid(signed_token: &str, config: &Config) -> Result<Uuid> {
+fn extract_uuid(signed_token: &str) -> Result<Uuid> {
     let parts: Vec<&str> = signed_token.split('.').collect();
     if parts.len() != 2 {
         return Err(err!("invalid token format").into());
@@ -148,8 +128,7 @@ fn extract_uuid(signed_token: &str, config: &Config) -> Result<Uuid> {
     let uuid_b64 = parts[0];
     let signature_b64 = parts[1];
 
-    // Verify signature
-    let mut mac = HmacSha256::new_from_slice(config.session_secret.expose_secret().as_bytes())?;
+    let mut mac = HmacSha256::new_from_slice(CONFIG.session_secret.expose_secret().as_bytes())?;
     mac.update(uuid_b64.as_bytes());
 
     let signature = BASE64_URL_SAFE_NO_PAD.decode(signature_b64)?;

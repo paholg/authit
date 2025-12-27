@@ -13,7 +13,7 @@ use oauth2::{
     RedirectUrl, Scope, StandardErrorResponse, TokenUrl, basic::BasicClient,
 };
 use secrecy::ExposeSecret;
-use server::Config;
+use server::CONFIG;
 use std::{
     collections::HashMap,
     sync::Arc,
@@ -40,22 +40,20 @@ type ConfiguredClient = oauth2::Client<
 
 #[derive(Clone)]
 pub struct AuthState {
-    pub config: Config,
     pub oauth_client: ConfiguredClient,
     pub pkce_verifiers: Arc<RwLock<HashMap<String, (String, Instant)>>>,
 }
 
 impl AuthState {
-    pub fn new(config: Config) -> Result<Self, url::ParseError> {
-        let kanidm_url = &config.kanidm_url;
+    pub fn new() -> Result<Self, url::ParseError> {
+        let kanidm_url = &CONFIG.kanidm_url;
 
-        let oauth_client = BasicClient::new(ClientId::new(config.oauth_client_id.clone()))
+        let oauth_client = BasicClient::new(ClientId::new(CONFIG.oauth_client_id.clone()))
             .set_auth_uri(AuthUrl::new(format!("{kanidm_url}/ui/oauth2"))?)
             .set_token_uri(TokenUrl::new(format!("{kanidm_url}/oauth2/token"))?)
-            .set_redirect_uri(RedirectUrl::new(config.oauth_redirect_uri.clone())?);
+            .set_redirect_uri(RedirectUrl::new(CONFIG.oauth_redirect_uri.clone())?);
 
         Ok(Self {
-            config,
             oauth_client,
             pkce_verifiers: Arc::new(RwLock::new(HashMap::new())),
         })
@@ -128,22 +126,19 @@ async fn callback(
 
     // Exchange authorization code for token (public client, no secret)
     let client = reqwest::Client::new();
-    let token_url = format!("{}/oauth2/token", state.config.kanidm_url);
+    let token_url = format!("{}/oauth2/token", CONFIG.kanidm_url);
     tracing::info!("Token exchange URL: {}", token_url);
-    tracing::info!("Client ID: {}", state.config.oauth_client_id);
-    tracing::info!("Redirect URI: {}", state.config.oauth_redirect_uri);
+    tracing::info!("Client ID: {}", CONFIG.oauth_client_id);
+    tracing::info!("Redirect URI: {}", CONFIG.oauth_redirect_uri);
 
     let token_response = client
         .post(&token_url)
         .form(&[
             ("grant_type", "authorization_code"),
             ("code", &params.code),
-            ("redirect_uri", &state.config.oauth_redirect_uri),
-            ("client_id", &state.config.oauth_client_id),
-            (
-                "client_secret",
-                state.config.oauth_client_secret.expose_secret(),
-            ),
+            ("redirect_uri", &CONFIG.oauth_redirect_uri),
+            ("client_id", &CONFIG.oauth_client_id),
+            ("client_secret", CONFIG.oauth_client_secret.expose_secret()),
             ("code_verifier", pkce_verifier.secret()),
         ])
         .send()
@@ -174,7 +169,7 @@ async fn callback(
     let userinfo_response = client
         .get(format!(
             "{}/oauth2/openid/{}/userinfo",
-            state.config.kanidm_url, state.config.oauth_client_id
+            CONFIG.kanidm_url, CONFIG.oauth_client_id
         ))
         .bearer_auth(&access_token)
         .send()

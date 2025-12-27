@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+config               = { version = "0.15.19", features = ["toml"] }
 types.workspace      = true
 dioxus               = { workspace = true, features = ["fullstack", "server"] }
 serde.workspace      = true

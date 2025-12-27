@@ -16,24 +16,26 @@ pub async fn get_current_user() -> ServerFnResult<Option<UserSession>> {
 #[post("/api/users")]
 pub async fn list_users() -> ServerFnResult<Vec<Person>> {
     server::require_admin_session().await?;
-    Ok(server::kanidm_client()?.list_persons().await?)
+    Ok(server::KANIDM_CLIENT.list_persons().await?)
 }
 
 #[post("/api/groups")]
 pub async fn list_groups() -> ServerFnResult<Vec<Group>> {
     server::require_admin_session().await?;
-    Ok(server::kanidm_client()?.list_groups().await?)
+    Ok(server::KANIDM_CLIENT.list_groups().await?)
 }
 
 #[post("/api/users/groups")]
 pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> ServerFnResult<()> {
     server::require_admin_session().await?;
-    let client = server::kanidm_client()?;
-
     if add {
-        client.add_user_to_group(&group_id, &user_id).await?;
+        server::KANIDM_CLIENT
+            .add_user_to_group(&group_id, &user_id)
+            .await?;
     } else {
-        client.remove_user_from_group(&group_id, &user_id).await?;
+        server::KANIDM_CLIENT
+            .remove_user_from_group(&group_id, &user_id)
+            .await?;
     }
 
     Ok(())
@@ -42,7 +44,7 @@ pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> Serv
 #[post("/api/users/reset-link")]
 pub async fn generate_reset_link(user_id: Uuid) -> ServerFnResult<ResetLink> {
     server::require_admin_session().await?;
-    Ok(server::kanidm_client()?
+    Ok(server::KANIDM_CLIENT
         .generate_credential_reset_link(&user_id)
         .await?)
 }
@@ -50,7 +52,7 @@ pub async fn generate_reset_link(user_id: Uuid) -> ServerFnResult<ResetLink> {
 #[post("/api/users/delete")]
 pub async fn delete_user(user_id: Uuid) -> ServerFnResult<()> {
     server::require_admin_session().await?;
-    server::kanidm_client()?.delete_person(&user_id).await?;
+    server::KANIDM_CLIENT.delete_person(&user_id).await?;
     Ok(())
 }
 
@@ -61,7 +63,7 @@ pub async fn create_user(
     email_address: String,
 ) -> ServerFnResult<()> {
     server::require_admin_session().await?;
-    server::kanidm_client()?
+    server::KANIDM_CLIENT
         .create_person(&name, &display_name, &email_address)
         .await?;
     Ok(())
@@ -92,15 +94,15 @@ pub async fn complete_provision(
 ) -> ServerFnResult<ResetLink> {
     let record = server::consume_provision_link(&token)?;
 
-    let client = server::kanidm_client()?;
-
-    match client
+    match server::KANIDM_CLIENT
         .create_person(&name, &display_name, &email_address)
         .await
     {
         Ok(()) => {
-            let person = client.get_person(&name).await?;
-            Ok(client.generate_credential_reset_link(&person.uuid).await?)
+            let person = server::KANIDM_CLIENT.get_person(&name).await?;
+            Ok(server::KANIDM_CLIENT
+                .generate_credential_reset_link(&person.uuid)
+                .await?)
         }
         Err(e) => {
             // Restore the link so user can retry
