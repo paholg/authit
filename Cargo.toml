@@ -17,6 +17,7 @@ serde_json = "1"
 eyre = "0.6"
 secrecy = { version = "0.10", features = ["serde"] }
 base64 = "0.22"
+jiff = { version = "0.2", features = ["serde"] }
 
 # Server-only
 axum = { version = "0.8" }

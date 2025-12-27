@@ -1,7 +1,7 @@
 use eyre::{Result, WrapErr};
 use reqwest::Client;
 use secrecy::{ExposeSecret, SecretString};
-use types::{Entry, Error, Group, Person};
+use types::{Entry, Error, Group, Person, ResetLink};
 
 #[derive(Clone)]
 pub struct KanidmClient {
@@ -159,7 +159,62 @@ impl KanidmClient {
         Ok(())
     }
 
-    pub async fn generate_credential_reset_link(&self, user_id: &str) -> Result<String, Error> {
+    pub async fn delete_person(&self, id: &str) -> Result<(), Error> {
+        let response = self
+            .client
+            .delete(format!("{}/v1/person/{}", self.base_url, id))
+            .bearer_auth(self.token.expose_secret())
+            .send()
+            .await
+            .wrap_err("failed to send request to Kanidm")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!("Delete person failed ({}): {}", status, body);
+            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
+        }
+
+        Ok(())
+    }
+
+    pub async fn create_person(
+        &self,
+        name: &str,
+        display_name: &str,
+        mail: Option<&str>,
+    ) -> Result<(), Error> {
+        let mut attrs = serde_json::json!({
+            "attrs": {
+                "name": [name],
+                "displayname": [display_name],
+            }
+        });
+
+        if let Some(email) = mail {
+            attrs["attrs"]["mail"] = serde_json::json!([email]);
+        }
+
+        let response = self
+            .client
+            .post(format!("{}/v1/person", self.base_url))
+            .bearer_auth(self.token.expose_secret())
+            .json(&attrs)
+            .send()
+            .await
+            .wrap_err("failed to send request to Kanidm")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!("Create person failed ({}): {}", status, body);
+            return Err(eyre::eyre!("Kanidm API error ({}): {}", status, body).into());
+        }
+
+        Ok(())
+    }
+
+    pub async fn generate_credential_reset_link(&self, user_id: &str) -> Result<ResetLink, Error> {
         let url = format!(
             "{}/v1/person/{}/_credential/_update_intent",
             self.base_url, user_id
@@ -185,19 +240,21 @@ impl KanidmClient {
         tracing::info!("Credential reset response: {}", body);
 
         #[derive(serde::Deserialize)]
-        struct Token {
+        struct TokenResponse {
             token: SecretString,
-            #[allow(dead_code)]
             expiry_time: u64,
         }
 
-        let reset_token: Token = serde_json::from_str(&body)
+        let token_response: TokenResponse = serde_json::from_str(&body)
             .wrap_err_with(|| format!("failed to parse token response: {}", body))?;
 
-        Ok(format!(
-            "{}/ui/reset?token={}",
-            self.base_url,
-            reset_token.token.expose_secret()
-        ))
+        Ok(ResetLink {
+            url: format!(
+                "{}/ui/reset?token={}",
+                self.base_url,
+                token_response.token.expose_secret()
+            ),
+            expires_at: token_response.expiry_time,
+        })
     }
 }

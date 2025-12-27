@@ -3,7 +3,8 @@
 //! Types are re-exported from the `types` crate for convenience.
 
 pub use types::{
-    decode_session, encode_session, Entry, Error, Group, Person, UserSession, SESSION_COOKIE_NAME,
+    decode_session, encode_session, Entry, Error, Group, Person, ResetLink, UserSession,
+    SESSION_COOKIE_NAME,
 };
 
 use dioxus::prelude::*;
@@ -65,11 +66,35 @@ pub async fn update_user_group(
 }
 
 #[post("/api/users/reset-link")]
-pub async fn generate_reset_link(user_id: String) -> Result<String, ServerFnError> {
+pub async fn generate_reset_link(user_id: String) -> Result<ResetLink, ServerFnError> {
     server::require_admin_session().await.map_err(to_server_error)?;
     server::kanidm_client()
         .map_err(to_server_error)?
         .generate_credential_reset_link(&user_id)
+        .await
+        .map_err(to_server_error)
+}
+
+#[post("/api/users/delete")]
+pub async fn delete_user(user_id: String) -> Result<(), ServerFnError> {
+    server::require_admin_session().await.map_err(to_server_error)?;
+    server::kanidm_client()
+        .map_err(to_server_error)?
+        .delete_person(&user_id)
+        .await
+        .map_err(to_server_error)
+}
+
+#[post("/api/users/create")]
+pub async fn create_user(
+    name: String,
+    display_name: String,
+    mail: Option<String>,
+) -> Result<(), ServerFnError> {
+    server::require_admin_session().await.map_err(to_server_error)?;
+    server::kanidm_client()
+        .map_err(to_server_error)?
+        .create_person(&name, &display_name, mail.as_deref())
         .await
         .map_err(to_server_error)
 }

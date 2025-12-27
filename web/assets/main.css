@@ -160,6 +160,13 @@ body {
 
 .page-header {
     margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.page-header-content {
+    flex: 1;
 }
 
 .page-title {
@@ -254,15 +261,19 @@ td {
 
 /* Form elements */
 .form-group {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
 }
 
 .form-label {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--color-text-muted);
-    margin-bottom: 0.25rem;
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
 }
 
 .form-value {
@@ -355,6 +366,20 @@ td {
     text-decoration: underline;
 }
 
+.btn-danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+.btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Error Banner (global) */
 .error-banner {
     display: flex;
@@ -424,6 +449,161 @@ td {
     border: 1px solid var(--color-border);
 }
 
+.code-block-wrapper {
+    position: relative;
+}
+
+.code-block-wrapper .code-block {
+    padding-right: 2.5rem;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.copy-btn:hover {
+    color: var(--color-text);
+    background: var(--color-bg-secondary);
+}
+
+.copy-btn svg {
+    display: block;
+}
+
+.copy-btn.copied {
+    color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+/* Reset link container */
+.reset-link-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.reset-link-expiry {
+    font-size: 0.875rem;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--color-card);
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.modal-sm {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-card-header);
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: var(--color-text);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-card-header);
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Form inputs */
+.form-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.form-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.form-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Divider */
 .divider {
     border-top: 1px solid var(--color-border);
@@ -436,6 +616,10 @@ td {
     font-weight: 600;
     color: var(--color-text);
     margin: 0 0 0.75rem 0;
+}
+
+.section-header-danger {
+    color: var(--color-danger);
 }
 
 /* Empty state */

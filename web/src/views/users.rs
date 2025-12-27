@@ -1,5 +1,6 @@
-use api::{Group, Person};
+use api::{Group, Person, ResetLink};
 use crate::{use_error, Route};
+use dioxus::document::eval;
 use dioxus::prelude::*;
 
 #[component]
@@ -8,6 +9,7 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
     let mut groups = use_signal(Vec::<Group>::new);
     let mut loading = use_signal(|| true);
     let mut error_state = use_error();
+    let mut show_create_form = use_signal(|| false);
 
     // Fetch users and groups on mount
     use_effect(move || {
@@ -36,7 +38,11 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
         });
     });
 
-    let refresh_user = move || {
+    let selected_user = use_memo(move || {
+        user_id().and_then(|id| users.read().iter().find(|u| u.uuid == id).cloned())
+    });
+
+    let refresh_users = move || {
         spawn(async move {
             if let Ok(mut u) = api::list_users().await {
                 u.sort_by(|a, b| {
@@ -49,15 +55,28 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
         });
     };
 
-    let selected_user = use_memo(move || {
-        user_id().and_then(|id| users.read().iter().find(|u| u.uuid == id).cloned())
-    });
-
     rsx! {
         div {
             div { class: "page-header",
-                h1 { class: "page-title", "User Management" }
-                p { class: "page-subtitle", "View and manage Kanidm users and their group memberships." }
+                div { class: "page-header-content",
+                    h1 { class: "page-title", "User Management" }
+                    p { class: "page-subtitle", "View and manage Kanidm users and their group memberships." }
+                }
+                button {
+                    class: "btn btn-primary",
+                    onclick: move |_| show_create_form.set(true),
+                    "Create User"
+                }
+            }
+
+            if *show_create_form.read() {
+                CreateUserModal {
+                    on_close: move |_| show_create_form.set(false),
+                    on_created: move |_| {
+                        show_create_form.set(false);
+                        refresh_users();
+                    },
+                }
             }
 
             if *loading.read() {
@@ -103,12 +122,34 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
                         UserDetailsCard {
                             user: u.clone(),
                             groups: groups.read().clone(),
-                            on_updated: move |_| refresh_user(),
+                            on_updated: move |_| refresh_users(),
+                            on_deleted: move |_| {
+                                refresh_users();
+                                navigator().replace(Route::UserList {});
+                            },
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// Component that displays a Unix timestamp formatted in Pacific time
+#[component]
+fn ExpiryTime(expires_at: u64) -> Element {
+    let formatted = jiff::tz::TimeZone::get("America/Los_Angeles")
+        .ok()
+        .and_then(|tz| {
+            jiff::Timestamp::from_second(expires_at as i64)
+                .ok()
+                .map(|ts| ts.to_zoned(tz))
+        })
+        .map(|zdt| zdt.strftime("%b %d, %Y at %I:%M %p %Z").to_string())
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    rsx! {
+        span { class: "text-muted", "Expires: {formatted}" }
     }
 }
 
@@ -127,13 +168,30 @@ fn is_member_of(user: &Person, group: &Group) -> bool {
 }
 
 #[component]
-fn UserDetailsCard(user: Person, groups: Vec<Group>, on_updated: EventHandler<()>) -> Element {
+fn UserDetailsCard(
+    user: Person,
+    groups: Vec<Group>,
+    on_updated: EventHandler<()>,
+    on_deleted: EventHandler<()>,
+) -> Element {
     let mut error_state = use_error();
     let mut generating_reset = use_signal(|| false);
-    let mut reset_link = use_signal(|| None::<String>);
+    let mut reset_link = use_signal(|| None::<ResetLink>);
     let mut updating_group = use_signal(|| None::<String>);
+    let mut copied = use_signal(|| false);
+    let mut prev_user_id = use_signal(|| user.uuid.clone());
+    let mut show_delete_confirm = use_signal(|| false);
+    let mut deleting = use_signal(|| false);
 
     let user_id = user.uuid.clone();
+
+    // Clear reset link when user changes
+    if *prev_user_id.read() != user_id {
+        prev_user_id.set(user_id.clone());
+        reset_link.set(None);
+        copied.set(false);
+        show_delete_confirm.set(false);
+    }
 
     // Separate groups into custom and built-in (already sorted from parent)
     let custom_groups: Vec<_> = groups
@@ -261,13 +319,73 @@ fn UserDetailsCard(user: Person, groups: Vec<Group>, on_updated: EventHandler<()
 
                 h3 { class: "section-header", "Credential Reset" }
                 if let Some(link) = reset_link.read().as_ref() {
-                    div {
-                        div { class: "code-block", "{link}" }
-                        button {
-                            onclick: move |_| reset_link.set(None),
-                            class: "btn btn-link",
-                            style: "margin-top: 0.5rem;",
-                            "Clear"
+                    {
+                        let url = link.url.clone();
+                        let expires_at = link.expires_at;
+                        rsx! {
+                            div { class: "reset-link-container",
+                                div { class: "code-block-wrapper",
+                                    div { class: "code-block", "{url}" }
+                                    button {
+                                        class: if *copied.read() { "copy-btn copied" } else { "copy-btn" },
+                                        title: if *copied.read() { "Copied!" } else { "Copy to clipboard" },
+                                        onclick: {
+                                            let url = url.clone();
+                                            move |_| {
+                                                let url = url.clone();
+                                                spawn(async move {
+                                                    let js = format!(
+                                                        r#"navigator.clipboard.writeText("{}")"#,
+                                                        url.replace("\"", "\\\"")
+                                                    );
+                                                    if eval(&js).recv::<()>().await.is_ok() {
+                                                        copied.set(true);
+                                                    }
+                                                });
+                                            }
+                                        },
+                                        if *copied.read() {
+                                            // Checkmark icon
+                                            svg {
+                                                width: "16",
+                                                height: "16",
+                                                view_box: "0 0 24 24",
+                                                fill: "none",
+                                                stroke: "currentColor",
+                                                stroke_width: "2",
+                                                stroke_linecap: "round",
+                                                stroke_linejoin: "round",
+                                                polyline { points: "20 6 9 17 4 12" }
+                                            }
+                                        } else {
+                                            // Clipboard icon
+                                            svg {
+                                                width: "16",
+                                                height: "16",
+                                                view_box: "0 0 24 24",
+                                                fill: "none",
+                                                stroke: "currentColor",
+                                                stroke_width: "2",
+                                                stroke_linecap: "round",
+                                                stroke_linejoin: "round",
+                                                rect { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }
+                                                path { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }
+                                            }
+                                        }
+                                    }
+                                }
+                                div { class: "reset-link-expiry",
+                                    ExpiryTime { expires_at }
+                                }
+                                button {
+                                    onclick: move |_| {
+                                        reset_link.set(None);
+                                        copied.set(false);
+                                    },
+                                    class: "btn btn-link",
+                                    "Clear"
+                                }
+                            }
                         }
                     }
                 } else {
@@ -293,6 +411,174 @@ fn UserDetailsCard(user: Person, groups: Vec<Group>, on_updated: EventHandler<()
                         } else {
                             "Generate Reset Link"
                         }
+                    }
+                }
+
+                div { class: "divider" }
+
+                h3 { class: "section-header section-header-danger", "Danger Zone" }
+                button {
+                    class: "btn btn-danger",
+                    onclick: move |_| show_delete_confirm.set(true),
+                    "Delete User"
+                }
+            }
+        }
+
+        if *show_delete_confirm.read() {
+            DeleteConfirmModal {
+                user_name: user.display_name.clone(),
+                deleting: *deleting.read(),
+                on_close: move |_| show_delete_confirm.set(false),
+                on_confirm: {
+                    let user_id = user_id.clone();
+                    move |_| {
+                        let user_id = user_id.clone();
+                        spawn(async move {
+                            deleting.set(true);
+                            match api::delete_user(user_id).await {
+                                Ok(()) => on_deleted.call(()),
+                                Err(e) => error_state.set(format!("Failed to delete user: {}", e)),
+                            }
+                            deleting.set(false);
+                            show_delete_confirm.set(false);
+                        });
+                    }
+                },
+            }
+        }
+    }
+}
+
+#[component]
+fn DeleteConfirmModal(
+    user_name: String,
+    deleting: bool,
+    on_close: EventHandler<()>,
+    on_confirm: EventHandler<()>,
+) -> Element {
+    rsx! {
+        div { class: "modal-overlay",
+            onclick: move |_| if !deleting { on_close.call(()) },
+            div { class: "modal modal-sm",
+                onclick: move |e| e.stop_propagation(),
+                div { class: "modal-header",
+                    h2 { class: "modal-title", "Delete User" }
+                    if !deleting {
+                        button {
+                            class: "modal-close",
+                            onclick: move |_| on_close.call(()),
+                            "×"
+                        }
+                    }
+                }
+                div { class: "modal-body",
+                    p { "Are you sure you want to delete " strong { "{user_name}" } "?" }
+                    p { class: "text-muted", "This action cannot be undone." }
+                }
+                div { class: "modal-footer",
+                    button {
+                        class: "btn btn-secondary",
+                        disabled: deleting,
+                        onclick: move |_| on_close.call(()),
+                        "Cancel"
+                    }
+                    button {
+                        class: "btn btn-danger",
+                        disabled: deleting,
+                        onclick: move |_| on_confirm.call(()),
+                        if deleting { "Deleting..." } else { "Delete" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> Element {
+    let mut error_state = use_error();
+    let mut username = use_signal(String::new);
+    let mut display_name = use_signal(String::new);
+    let mut email = use_signal(String::new);
+    let mut creating = use_signal(|| false);
+
+    let can_submit = !username.read().is_empty() && !display_name.read().is_empty();
+
+    rsx! {
+        div { class: "modal-overlay",
+            onclick: move |_| on_close.call(()),
+            div { class: "modal",
+                onclick: move |e| e.stop_propagation(),
+                div { class: "modal-header",
+                    h2 { class: "modal-title", "Create User" }
+                    button {
+                        class: "modal-close",
+                        onclick: move |_| on_close.call(()),
+                        "×"
+                    }
+                }
+                div { class: "modal-body",
+                    div { class: "form-group",
+                        label { class: "form-label", r#for: "username", "Username *" }
+                        input {
+                            id: "username",
+                            class: "form-input",
+                            r#type: "text",
+                            placeholder: "e.g. jsmith",
+                            value: "{username}",
+                            oninput: move |e| username.set(e.value()),
+                        }
+                    }
+                    div { class: "form-group",
+                        label { class: "form-label", r#for: "display_name", "Display Name *" }
+                        input {
+                            id: "display_name",
+                            class: "form-input",
+                            r#type: "text",
+                            placeholder: "e.g. John Smith",
+                            value: "{display_name}",
+                            oninput: move |e| display_name.set(e.value()),
+                        }
+                    }
+                    div { class: "form-group",
+                        label { class: "form-label", r#for: "email", "Email" }
+                        input {
+                            id: "email",
+                            class: "form-input",
+                            r#type: "email",
+                            placeholder: "e.g. jsmith@example.com",
+                            value: "{email}",
+                            oninput: move |e| email.set(e.value()),
+                        }
+                    }
+                }
+                div { class: "modal-footer",
+                    button {
+                        class: "btn btn-secondary",
+                        onclick: move |_| on_close.call(()),
+                        "Cancel"
+                    }
+                    button {
+                        class: "btn btn-primary",
+                        disabled: !can_submit || *creating.read(),
+                        onclick: move |_| {
+                            let name = username.read().clone();
+                            let dname = display_name.read().clone();
+                            let mail = {
+                                let e = email.read();
+                                if e.is_empty() { None } else { Some(e.clone()) }
+                            };
+                            spawn(async move {
+                                creating.set(true);
+                                match api::create_user(name, dname, mail).await {
+                                    Ok(()) => on_created.call(()),
+                                    Err(e) => error_state.set(format!("Failed to create user: {}", e)),
+                                }
+                                creating.set(false);
+                            });
+                        },
+                        if *creating.read() { "Creating..." } else { "Create" }
                     }
                 }
             }
