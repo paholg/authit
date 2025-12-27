@@ -56,7 +56,7 @@ pub fn Provision(token: String) -> Element {
                             }
 
                             div { class: "form-group",
-                                label { class: "form-label", r#for: "username", "Username *" }
+                                label { class: "form-label", r#for: "username", "Username" }
                                 input {
                                     id: "username",
                                     class: "form-input",
@@ -68,7 +68,7 @@ pub fn Provision(token: String) -> Element {
                                 }
                             }
                             div { class: "form-group",
-                                label { class: "form-label", r#for: "display_name", "Display Name *" }
+                                label { class: "form-label", r#for: "display_name", "Display Name" }
                                 input {
                                     id: "display_name",
                                     class: "form-input",

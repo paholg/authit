@@ -45,7 +45,9 @@ impl std::cmp::PartialOrd for Person {
 
 impl std::cmp::Ord for Person {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.display_name.cmp(&other.display_name)
+        self.display_name
+            .to_ascii_lowercase()
+            .cmp(&other.display_name.to_ascii_lowercase())
     }
 }
 
@@ -90,7 +92,9 @@ impl std::cmp::PartialOrd for Group {
 
 impl std::cmp::Ord for Group {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.name.cmp(&other.name)
+        self.name
+            .to_ascii_lowercase()
+            .cmp(&other.name.to_ascii_lowercase())
     }
 }
 
