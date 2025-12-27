@@ -1,7 +1,7 @@
 //! Provision link storage backed by redb.
 
 use eyre::{Result, WrapErr, eyre};
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use std::path::Path;
 use std::sync::OnceLock;
 use types::{ProvisionLinkInfo, ProvisionRecord};
