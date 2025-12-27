@@ -65,7 +65,7 @@ pub async fn get_session_from_cookie() -> Result<UserSession> {
         }
     }
 
-    Err(err!("session cookie not found").into())
+    Err(err!("session cookie not found"))
 }
 
 /// Require an authenticated admin session, returning the session if valid.
@@ -77,8 +77,7 @@ pub async fn require_admin_session() -> Result<UserSession> {
             "access denied: user '{}' must be in '{}' group",
             session.username,
             CONFIG.admin_group
-        )
-        .into());
+        ));
     }
 
     Ok(session)
@@ -125,7 +124,7 @@ fn sign_uuid(id: Uuid) -> Result<String> {
 fn extract_uuid(signed_token: &str) -> Result<Uuid> {
     let parts: Vec<&str> = signed_token.split('.').collect();
     if parts.len() != 2 {
-        return Err(err!("invalid token format").into());
+        return Err(err!("invalid token format"));
     }
 
     let uuid_b64 = parts[0];

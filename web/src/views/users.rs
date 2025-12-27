@@ -110,13 +110,13 @@ pub fn Users(user_id: ReadSignal<Option<Uuid>>) -> Element {
                                 tbody {
                                     for user in users.read().iter() {
                                         {
-                                            let user_id = user.uuid.clone();
+                                            let user_id = user.uuid;
                                             let is_selected = selected_user().as_ref().map(|u| u.uuid == user_id).unwrap_or(false);
                                             rsx! {
                                                 tr {
                                                     class: if is_selected { "selected" },
                                                     onclick: move |_| {
-                                                        navigator().replace(Route::UserDetail { user_id: user_id.clone() });
+                                                        navigator().replace(Route::UserDetail { user_id });
                                                     },
                                                     td { "{user.display_name}" }
                                                     td { "{user.name}" }
@@ -183,15 +183,15 @@ fn UserDetailsCard(
     let mut reset_link = use_signal(|| None::<ResetLink>);
     let mut updating_group = use_signal(|| None::<Uuid>);
     let mut copied = use_signal(|| false);
-    let mut prev_user_id = use_signal(|| user.uuid.clone());
+    let mut prev_user_id = use_signal(|| user.uuid);
     let mut show_delete_confirm = use_signal(|| false);
     let mut deleting = use_signal(|| false);
 
-    let user_id = user.uuid.clone();
+    let user_id = user.uuid;
 
     // Clear reset link when user changes
     if *prev_user_id.read() != user_id {
-        prev_user_id.set(user_id.clone());
+        prev_user_id.set(user_id);
         reset_link.set(None);
         copied.set(false);
         show_delete_confirm.set(false);
@@ -234,8 +234,7 @@ fn UserDetailsCard(
                         {
                             let is_member = is_member_of(&user, group);
                             let group_name = group.name.clone();
-                            let group_id = group.uuid.clone();
-                            let user_id = user_id.clone();
+                            let group_id = group.uuid;
                             let is_updating = updating_group.read().as_ref() == Some(&group_id);
 
                             rsx! {
@@ -246,11 +245,11 @@ fn UserDetailsCard(
                                             checked: is_member,
                                             disabled: is_updating,
                                             onchange: move |_| {
-                                                let group_id = group_id.clone();
-                                                let user_id = user_id.clone();
+                                                let group_id = group_id;
+                                                let user_id = user_id;
                                                 let add = !is_member;
                                                 spawn(async move {
-                                                    updating_group.set(Some(group_id.clone()));
+                                                    updating_group.set(Some(group_id));
                                                     match api::update_user_group(user_id, group_id, add).await {
                                                         Ok(()) => on_updated.call(()),
                                                         Err(e) => error_state.set_server_error(&e),
@@ -281,8 +280,7 @@ fn UserDetailsCard(
                         {
                             let is_member = is_member_of(&user, group);
                             let group_name = group.name.clone();
-                            let group_id = group.uuid.clone();
-                            let user_id = user_id.clone();
+                            let group_id = group.uuid;
                             let is_updating = updating_group.read().as_ref() == Some(&group_id);
 
                             rsx! {
@@ -293,11 +291,11 @@ fn UserDetailsCard(
                                             checked: is_member,
                                             disabled: is_updating,
                                             onchange: move |_| {
-                                                let group_id = group_id.clone();
-                                                let user_id = user_id.clone();
+                                                let group_id = group_id;
+                                                let user_id = user_id;
                                                 let add = !is_member;
                                                 spawn(async move {
-                                                    updating_group.set(Some(group_id.clone()));
+                                                    updating_group.set(Some(group_id));
                                                     match api::update_user_group(user_id, group_id, add).await {
                                                         Ok(()) => on_updated.call(()),
                                                         Err(e) => error_state.set_server_error(&e),
@@ -431,9 +429,8 @@ fn UserDetailsCard(
                 deleting: *deleting.read(),
                 on_close: move |_| show_delete_confirm.set(false),
                 on_confirm: {
-                    let user_id = user_id.clone();
                     move |_| {
-                        let user_id = user_id.clone();
+                        let user_id = user_id;
                         spawn(async move {
                             deleting.set(true);
                             match api::delete_user(user_id).await {
