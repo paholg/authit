@@ -43,9 +43,6 @@ fn UserDetail(user_id: String) -> Element {
     rsx! { Users { user_id: Some(user_id) } }
 }
 
-const FAVICON: Asset = asset!("/assets/favicon.svg");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-
 fn main() {
     #[cfg(feature = "server")]
     {
@@ -70,8 +67,8 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Title { "AuthIt!" }
-        document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link { rel: "icon", href: asset!("/assets/favicon.svg") }
+        document::Link { rel: "stylesheet", href: asset!("/assets/main.css") }
 
         Router::<Route> {}
     }

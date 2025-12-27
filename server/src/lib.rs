@@ -1,10 +1,3 @@
-//! Server-only code for Authit.
-//!
-//! This crate contains code that only runs on the server:
-//! - Configuration
-//! - Kanidm API client
-//! - Session management
-
 mod config;
 mod kanidm;
 
@@ -23,9 +16,11 @@ type HmacSha256 = Hmac<Sha256>;
 /// Get the base URL from the current request (e.g., "https://example.com")
 pub async fn get_request_base_url() -> Result<String, Error> {
     use axum::http::HeaderMap;
-    use dioxus::fullstack::extract;
+    use dioxus::fullstack::FullstackContext;
 
-    let headers: HeaderMap = extract().await.wrap_err("failed to extract headers")?;
+    let headers: HeaderMap = FullstackContext::extract()
+        .await
+        .wrap_err("failed to extract headers")?;
 
     // Try X-Forwarded-Proto and X-Forwarded-Host first (for reverse proxies)
     let proto = headers
@@ -45,9 +40,11 @@ pub async fn get_request_base_url() -> Result<String, Error> {
 /// Extract the user session from the request cookie.
 pub async fn get_session_from_cookie() -> Result<UserSession, Error> {
     use axum::http::HeaderMap;
-    use dioxus::fullstack::extract;
+    use dioxus::fullstack::FullstackContext;
 
-    let headers: HeaderMap = extract().await.wrap_err("failed to extract headers")?;
+    let headers: HeaderMap = FullstackContext::extract()
+        .await
+        .wrap_err("failed to extract headers")?;
 
     let cookie_header = headers
         .get(axum::http::header::COOKIE)

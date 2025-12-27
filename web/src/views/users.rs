@@ -4,7 +4,7 @@ use dioxus::document::eval;
 use dioxus::prelude::*;
 
 #[component]
-pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
+pub fn Users(user_id: ReadSignal<Option<String>>) -> Element {
     let mut users = use_signal(Vec::<Person>::new);
     let mut groups = use_signal(Vec::<Group>::new);
     let mut loading = use_signal(|| true);
