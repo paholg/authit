@@ -11,79 +11,93 @@
 
   outputs =
     {
+      self,
       crane,
       flake-utils,
       nixpkgs,
       rust-overlay,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        overlays = [
-          (import rust-overlay)
-        ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
-        };
-
-        rustMinimal = pkgs.rust-bin.stable.latest.minimal.override {
-          targets = [ "wasm32-unknown-unknown" ];
-        };
-        rustDev = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [
-            "rust-analyzer"
-            "rust-src"
+    let
+      systemOutputs = flake-utils.lib.eachDefaultSystem (
+        system:
+        let
+          overlays = [
+            (import rust-overlay)
           ];
-          targets = [ "wasm32-unknown-unknown" ];
-        };
+          pkgs = import nixpkgs {
+            inherit system overlays;
+          };
 
-        craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustMinimal);
+          rustMinimal = pkgs.rust-bin.stable.latest.minimal.override {
+            targets = [ "wasm32-unknown-unknown" ];
+          };
+          rustDev = pkgs.rust-bin.stable.latest.default.override {
+            extensions = [
+              "rust-analyzer"
+              "rust-src"
+            ];
+            targets = [ "wasm32-unknown-unknown" ];
+          };
 
-        commonArgs = {
-          strictDeps = true;
-          nativeBuildInputs = [ ];
-        };
+          craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustMinimal);
 
-        artifacts = commonArgs // {
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-        };
+          commonArgs = {
+            strictDeps = true;
+            nativeBuildInputs = [ ];
+          };
 
-        package = craneLib.buildPackage (
-          artifacts
-          // {
-            doCheck = false;
-          }
-        );
+          artifacts = commonArgs // {
+            cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+          };
 
-      in
-      {
-        checks = {
-          clippy = craneLib.cargoClippy (
+          package = craneLib.buildPackage (
             artifacts
             // {
-              cargoClippyExtraArgs = "-- --deny warnings";
+              doCheck = false;
             }
           );
-          fmt = craneLib.cargoFmt artifacts;
-          test = craneLib.cargoNextest artifacts;
+
+        in
+        {
+          checks = {
+            clippy = craneLib.cargoClippy (
+              artifacts
+              // {
+                cargoClippyExtraArgs = "-- --deny warnings";
+              }
+            );
+            fmt = craneLib.cargoFmt artifacts;
+            test = craneLib.cargoNextest artifacts;
+          };
+          packages = {
+            default = package;
+          };
+          devShells.default = pkgs.mkShell {
+            packages =
+              with pkgs;
+              [
+                cargo-dist
+                cargo-edit
+                cargo-nextest
+                just
+                pkg-config
+                openssl
+              ]
+              ++ [ rustDev ];
+          };
+        }
+      );
+    in
+    systemOutputs
+    // {
+      nixosModules.default =
+        { lib, pkgs, ... }:
+        {
+          imports = [ ./nix/module.nix ];
+
+          # Set default package based on system
+          services.authit.package = lib.mkDefault self.packages.${pkgs.system}.default;
         };
-        packages = {
-          default = package;
-        };
-        devShells.default = pkgs.mkShell {
-          packages =
-            with pkgs;
-            [
-              cargo-dist
-              cargo-edit
-              cargo-nextest
-              just
-              pkg-config
-              openssl
-            ]
-            ++ [ rustDev ];
-        };
-      }
-    );
+    };
 }
