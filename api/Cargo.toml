@@ -1,13 +1,13 @@
 [package]
-name    = "api"
-version = "0.1.0"
 edition = "2024"
+name = "api"
+version = "0.1.0"
 
 [dependencies]
-dioxus               = { workspace = true, features = ["fullstack"] }
-types.workspace      = true
-uuid.workspace       = true
+dioxus = { workspace = true, features = ["fullstack"] }
 serde_json.workspace = true
+types.workspace = true
+uuid.workspace = true
 
 # Server-only
 server = { workspace = true, optional = true }
