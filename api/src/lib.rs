@@ -3,8 +3,8 @@
 //! Types are re-exported from the `types` crate for convenience.
 
 pub use types::{
-    decode_session, encode_session, Entry, Error, Group, Person, ResetLink, UserSession,
-    SESSION_COOKIE_NAME,
+    decode_session, encode_session, Entry, Error, Group, Person, ProvisionToken, ResetLink,
+    UserSession, SESSION_COOKIE_NAME,
 };
 
 use dioxus::prelude::*;
@@ -95,6 +95,43 @@ pub async fn create_user(
     server::kanidm_client()
         .map_err(to_server_error)?
         .create_person(&name, &display_name, mail.as_deref())
+        .await
+        .map_err(to_server_error)
+}
+
+#[post("/api/provision/generate")]
+pub async fn generate_provision_url(duration_hours: u32) -> Result<String, ServerFnError> {
+    server::require_admin_session().await.map_err(to_server_error)?;
+    let token = server::create_provision_token(duration_hours).map_err(to_server_error)?;
+    let base_url = server::get_request_base_url().await.map_err(to_server_error)?;
+    Ok(format!("{}/provision/{}", base_url, token))
+}
+
+#[post("/api/provision/verify")]
+pub async fn verify_provision(token: String) -> Result<ProvisionToken, ServerFnError> {
+    server::verify_provision_token(&token).map_err(to_server_error)
+}
+
+#[post("/api/provision/complete")]
+pub async fn complete_provision(
+    token: String,
+    name: String,
+    display_name: String,
+    mail: Option<String>,
+) -> Result<ResetLink, ServerFnError> {
+    // Verify the token first
+    server::verify_provision_token(&token).map_err(to_server_error)?;
+
+    // Create the user
+    let client = server::kanidm_client().map_err(to_server_error)?;
+    client
+        .create_person(&name, &display_name, mail.as_deref())
+        .await
+        .map_err(to_server_error)?;
+
+    // Generate credential reset link
+    client
+        .generate_credential_reset_link(&name)
         .await
         .map_err(to_server_error)
 }

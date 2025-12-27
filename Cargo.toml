@@ -18,6 +18,9 @@ eyre = "0.6"
 secrecy = { version = "0.10", features = ["serde"] }
 base64 = "0.22"
 jiff = { version = "0.2", features = ["serde"] }
+hmac = "0.12"
+sha2 = "0.10"
+uuid = { version = "1", features = ["serde"] }
 
 # Server-only
 axum = { version = "0.8" }

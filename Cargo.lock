@@ -594,6 +594,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -1560,6 +1561,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "54b4a22553d4242c49fddb9ba998a99962b5cc6f22cb5a3482bec22522403ce4"
 dependencies = [
  "http",
+]
+
+[[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest",
 ]
 
 [[package]]
@@ -2847,14 +2857,18 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "dioxus",
  "eyre",
+ "hmac",
  "reqwest",
  "secrecy",
  "serde",
  "serde_json",
+ "sha2",
  "tracing",
  "types",
+ "uuid",
 ]
 
 [[package]]
@@ -3466,6 +3480,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -3536,7 +3551,9 @@ version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
+ "getrandom 0.3.4",
  "js-sys",
+ "serde_core",
  "wasm-bindgen",
 ]
 

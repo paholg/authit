@@ -10,6 +10,7 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
     let mut loading = use_signal(|| true);
     let mut error_state = use_error();
     let mut show_create_form = use_signal(|| false);
+    let mut show_provision_modal = use_signal(|| false);
 
     // Fetch users and groups on mount
     use_effect(move || {
@@ -62,10 +63,17 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
                     h1 { class: "page-title", "User Management" }
                     p { class: "page-subtitle", "View and manage Kanidm users and their group memberships." }
                 }
-                button {
-                    class: "btn btn-primary",
-                    onclick: move |_| show_create_form.set(true),
-                    "Create User"
+                div { class: "page-header-actions",
+                    button {
+                        class: "btn btn-secondary",
+                        onclick: move |_| show_provision_modal.set(true),
+                        "Generate Provision Link"
+                    }
+                    button {
+                        class: "btn btn-primary",
+                        onclick: move |_| show_create_form.set(true),
+                        "Create User"
+                    }
                 }
             }
 
@@ -76,6 +84,12 @@ pub fn Users(user_id: ReadOnlySignal<Option<String>>) -> Element {
                         show_create_form.set(false);
                         refresh_users();
                     },
+                }
+            }
+
+            if *show_provision_modal.read() {
+                ProvisionLinkModal {
+                    on_close: move |_| show_provision_modal.set(false),
                 }
             }
 
@@ -579,6 +593,142 @@ fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> 
                             });
                         },
                         if *creating.read() { "Creating..." } else { "Create" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
+    let mut error_state = use_error();
+    let mut duration_hours = use_signal(|| 1u32);
+    let mut generating = use_signal(|| false);
+    let mut provision_url = use_signal(|| None::<String>);
+    let mut copied = use_signal(|| false);
+
+    rsx! {
+        div { class: "modal-overlay",
+            onclick: move |_| on_close.call(()),
+            div { class: "modal",
+                onclick: move |e| e.stop_propagation(),
+                div { class: "modal-header",
+                    h2 { class: "modal-title", "Generate Provision Link" }
+                    button {
+                        class: "modal-close",
+                        onclick: move |_| on_close.call(()),
+                        "×"
+                    }
+                }
+                div { class: "modal-body",
+                    if let Some(url) = provision_url.read().as_ref() {
+                        {
+                            let url = url.clone();
+                            rsx! {
+                                p { "Share this link with the user to let them create their own account:" }
+                                div { class: "code-block-wrapper",
+                                    div { class: "code-block", "{url}" }
+                                    button {
+                                        class: if *copied.read() { "copy-btn copied" } else { "copy-btn" },
+                                        title: if *copied.read() { "Copied!" } else { "Copy to clipboard" },
+                                        onclick: {
+                                            let url = url.clone();
+                                            move |_| {
+                                                let url = url.clone();
+                                                spawn(async move {
+                                                    let js = format!(
+                                                        r#"navigator.clipboard.writeText("{}")"#,
+                                                        url.replace("\"", "\\\"")
+                                                    );
+                                                    if eval(&js).recv::<()>().await.is_ok() {
+                                                        copied.set(true);
+                                                    }
+                                                });
+                                            }
+                                        },
+                                        if *copied.read() {
+                                            svg {
+                                                width: "16",
+                                                height: "16",
+                                                view_box: "0 0 24 24",
+                                                fill: "none",
+                                                stroke: "currentColor",
+                                                stroke_width: "2",
+                                                stroke_linecap: "round",
+                                                stroke_linejoin: "round",
+                                                polyline { points: "20 6 9 17 4 12" }
+                                            }
+                                        } else {
+                                            svg {
+                                                width: "16",
+                                                height: "16",
+                                                view_box: "0 0 24 24",
+                                                fill: "none",
+                                                stroke: "currentColor",
+                                                stroke_width: "2",
+                                                stroke_linecap: "round",
+                                                stroke_linejoin: "round",
+                                                rect { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }
+                                                path { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }
+                                            }
+                                        }
+                                    }
+                                }
+                                p { class: "text-muted text-sm", "This link will expire based on the duration you selected." }
+                            }
+                        }
+                    } else {
+                        p { class: "text-muted", "Generate a link that allows someone to create their own account." }
+                        div { class: "form-group",
+                            label { class: "form-label", r#for: "duration", "Link expires in" }
+                            select {
+                                id: "duration",
+                                class: "form-input",
+                                value: "{duration_hours}",
+                                onchange: move |e| {
+                                    if let Ok(v) = e.value().parse() {
+                                        duration_hours.set(v);
+                                    }
+                                },
+                                option { value: "1", "1 hour" }
+                                option { value: "4", "4 hours" }
+                                option { value: "24", "24 hours" }
+                                option { value: "72", "3 days" }
+                                option { value: "168", "7 days" }
+                            }
+                        }
+                    }
+                }
+                div { class: "modal-footer",
+                    if provision_url.read().is_some() {
+                        button {
+                            class: "btn btn-primary",
+                            onclick: move |_| on_close.call(()),
+                            "Done"
+                        }
+                    } else {
+                        button {
+                            class: "btn btn-secondary",
+                            onclick: move |_| on_close.call(()),
+                            "Cancel"
+                        }
+                        button {
+                            class: "btn btn-primary",
+                            disabled: *generating.read(),
+                            onclick: move |_| {
+                                let hours = *duration_hours.read();
+                                spawn(async move {
+                                    generating.set(true);
+                                    match api::generate_provision_url(hours).await {
+                                        Ok(url) => provision_url.set(Some(url)),
+                                        Err(e) => error_state.set(format!("Failed to generate link: {}", e)),
+                                    }
+                                    generating.set(false);
+                                });
+                            },
+                            if *generating.read() { "Generating..." } else { "Generate Link" }
+                        }
                     }
                 }
             }

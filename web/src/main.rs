@@ -5,13 +5,15 @@ mod views;
 #[cfg(feature = "server")]
 mod auth_routes;
 
-use views::{Dashboard, Login, Users};
+use views::{Dashboard, Login, Provision, Users};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
     #[route("/login")]
     Login {},
+    #[route("/provision/:token")]
+    Provision { token: String },
     #[layout(AuthenticatedLayout)]
         #[route("/")]
         Dashboard {},
