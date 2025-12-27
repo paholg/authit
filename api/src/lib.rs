@@ -3,7 +3,7 @@
 //! Types are re-exported from the `types` crate for convenience.
 
 pub use types::{
-    Entry, Error, Group, Person, ProvisionToken, ResetLink, SESSION_COOKIE_NAME, UserSession,
+    Entry, Error, Group, Person, ProvisionLinkInfo, ResetLink, SESSION_COOKIE_NAME, UserSession,
     decode_session, encode_session,
 };
 
@@ -112,11 +112,14 @@ pub async fn create_user(
 }
 
 #[post("/api/provision/generate")]
-pub async fn generate_provision_url(duration_hours: u32) -> Result<String, ServerFnError> {
+pub async fn generate_provision_url(
+    duration_hours: u32,
+    max_uses: Option<u32>,
+) -> Result<String, ServerFnError> {
     server::require_admin_session()
         .await
         .map_err(to_server_error)?;
-    let token = server::create_provision_token(duration_hours).map_err(to_server_error)?;
+    let token = server::create_provision_link(duration_hours, max_uses).map_err(to_server_error)?;
     let base_url = server::get_request_base_url()
         .await
         .map_err(to_server_error)?;
@@ -124,8 +127,8 @@ pub async fn generate_provision_url(duration_hours: u32) -> Result<String, Serve
 }
 
 #[post("/api/provision/verify")]
-pub async fn verify_provision(token: String) -> Result<ProvisionToken, ServerFnError> {
-    server::verify_provision_token(&token).map_err(to_server_error)
+pub async fn verify_provision(token: String) -> Result<ProvisionLinkInfo, ServerFnError> {
+    server::verify_provision_link(&token).map_err(to_server_error)
 }
 
 #[post("/api/provision/complete")]
@@ -135,15 +138,19 @@ pub async fn complete_provision(
     display_name: String,
     mail: Option<String>,
 ) -> Result<ResetLink, ServerFnError> {
-    // Verify the token first
-    server::verify_provision_token(&token).map_err(to_server_error)?;
+    // Consume the provision link (increments use count, checks limits)
+    let record = server::consume_provision_link(&token).map_err(to_server_error)?;
 
-    // Create the user
+    // Create the user - if this fails, restore the link so user can try again
     let client = server::kanidm_client().map_err(to_server_error)?;
-    client
+    if let Err(e) = client
         .create_person(&name, &display_name, mail.as_deref())
         .await
-        .map_err(to_server_error)?;
+    {
+        // Restore the link so user can retry
+        let _ = server::unconsume_provision_link(record);
+        return Err(to_server_error(e));
+    }
 
     // Generate credential reset link
     client

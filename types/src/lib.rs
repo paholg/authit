@@ -10,6 +10,6 @@ mod session;
 
 pub use error::Error;
 pub use kanidm::{Entry, Group, Person};
-pub use provision::ProvisionToken;
+pub use provision::{ProvisionLinkInfo, ProvisionRecord, ProvisionToken};
 pub use reset_link::ResetLink;
 pub use session::{SESSION_COOKIE_NAME, UserSession, decode_session, encode_session};

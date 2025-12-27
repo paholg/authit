@@ -1,6 +1,7 @@
 use eyre::{Result, eyre};
 use secrecy::SecretString;
 use std::env;
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Config {
@@ -11,6 +12,7 @@ pub struct Config {
     pub oauth_redirect_uri: String,
     pub session_secret: SecretString,
     pub admin_group: String,
+    pub data_dir: PathBuf,
 }
 
 impl Config {
@@ -23,6 +25,9 @@ impl Config {
             oauth_redirect_uri: env_var("AUTHIT_OAUTH_REDIRECT_URI")?,
             session_secret: env_var("AUTHIT_SESSION_SECRET")?.into(),
             admin_group: env::var("AUTHIT_ADMIN_GROUP").unwrap_or_else(|_| "authit_admin".into()),
+            data_dir: env::var("AUTHIT_DATA_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("/var/lib/authit")),
         })
     }
 }

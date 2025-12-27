@@ -1,5 +1,6 @@
 mod config;
 mod kanidm;
+pub mod storage;
 
 pub use config::Config;
 pub use kanidm::KanidmClient;
@@ -9,9 +10,20 @@ use eyre::{WrapErr, eyre};
 use hmac::{Hmac, Mac};
 use secrecy::ExposeSecret;
 use sha2::Sha256;
-use types::{Error, ProvisionToken, SESSION_COOKIE_NAME, UserSession, decode_session};
+use types::{
+    Error, ProvisionLinkInfo, ProvisionRecord, SESSION_COOKIE_NAME, UserSession, decode_session,
+};
+use uuid::Uuid;
 
 type HmacSha256 = Hmac<Sha256>;
+
+/// Initialize the server, including storage.
+/// Must be called before using provision link functions.
+pub fn init() -> Result<(), Error> {
+    let config = Config::from_env()?;
+    let db_path = config.data_dir.join("provision.redb");
+    storage::init_storage(&db_path).map_err(Error::from)
+}
 
 /// Get the base URL from the current request (e.g., "https://example.com")
 pub async fn get_request_base_url() -> Result<String, Error> {
@@ -22,17 +34,17 @@ pub async fn get_request_base_url() -> Result<String, Error> {
         .await
         .wrap_err("failed to extract headers")?;
 
-    // Try X-Forwarded-Proto and X-Forwarded-Host first (for reverse proxies)
-    let proto = headers
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("https");
-
     let host = headers
         .get("x-forwarded-host")
         .or_else(|| headers.get("host"))
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| eyre!("no host header in request"))?;
+
+    // Use X-Forwarded-Proto if set (by reverse proxy), otherwise assume http
+    let proto = headers
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("http");
 
     Ok(format!("{}://{}", proto, host))
 }
@@ -93,62 +105,87 @@ pub fn kanidm_client() -> Result<KanidmClient, Error> {
     Ok(KanidmClient::new(config.kanidm_url, config.kanidm_token))
 }
 
-/// Create a signed provision token.
-pub fn create_provision_token(duration_hours: u32) -> Result<String, Error> {
+/// Create a provision link and persist it.
+/// Returns a signed token string.
+pub fn create_provision_link(duration_hours: u32, max_uses: Option<u32>) -> Result<String, Error> {
     let config = Config::from_env()?;
-    let token = ProvisionToken::new(uuid::Uuid::now_v7(), duration_hours as u64 * 3600);
 
-    // Serialize the token
-    let token_json = serde_json::to_string(&token).wrap_err("failed to serialize token")?;
-    let token_b64 = BASE64_URL_SAFE_NO_PAD.encode(token_json.as_bytes());
+    // Create and persist the link
+    let record = storage::storage()?
+        .create_link(duration_hours as u64 * 3600, max_uses)
+        .map_err(Error::from)?;
 
-    // Create HMAC signature
-    let mut mac = HmacSha256::new_from_slice(config.session_secret.expose_secret().as_bytes())
-        .wrap_err("invalid secret key")?;
-    mac.update(token_b64.as_bytes());
-    let signature = BASE64_URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
-
-    // Return token.signature format
-    Ok(format!("{}.{}", token_b64, signature))
+    // Sign the UUID for URL tamper-resistance
+    sign_uuid(record.id, &config)
 }
 
-/// Verify and decode a provision token.
-pub fn verify_provision_token(signed_token: &str) -> Result<ProvisionToken, Error> {
+/// Verify a provision link without consuming it.
+/// Returns link info if valid.
+pub fn verify_provision_link(signed_token: &str) -> Result<ProvisionLinkInfo, Error> {
     let config = Config::from_env()?;
+    let uuid = extract_uuid(signed_token, &config)?;
 
-    // Split into token and signature
+    storage::storage()?.verify_link(uuid).map_err(Error::from)
+}
+
+/// Consume a provision link (increment use count).
+/// Returns the record for potential rollback, error if expired/exhausted.
+pub fn consume_provision_link(signed_token: &str) -> Result<ProvisionRecord, Error> {
+    let config = Config::from_env()?;
+    let uuid = extract_uuid(signed_token, &config)?;
+
+    storage::storage()?.consume_link(uuid).map_err(Error::from)
+}
+
+/// Restore a consumed provision link (e.g., if user creation failed).
+pub fn unconsume_provision_link(record: ProvisionRecord) -> Result<(), Error> {
+    storage::storage()?
+        .unconsume_link(record)
+        .map_err(Error::from)
+}
+
+/// Sign a UUID to create a tamper-resistant token.
+fn sign_uuid(id: Uuid, config: &Config) -> Result<String, Error> {
+    let uuid_b64 = BASE64_URL_SAFE_NO_PAD.encode(id.as_bytes());
+
+    let mut mac = HmacSha256::new_from_slice(config.session_secret.expose_secret().as_bytes())
+        .wrap_err("invalid secret key")?;
+    mac.update(uuid_b64.as_bytes());
+    let signature = BASE64_URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
+
+    Ok(format!("{}.{}", uuid_b64, signature))
+}
+
+/// Extract and verify a UUID from a signed token.
+fn extract_uuid(signed_token: &str, config: &Config) -> Result<Uuid, Error> {
     let parts: Vec<&str> = signed_token.split('.').collect();
     if parts.len() != 2 {
         return Err(eyre!("invalid token format").into());
     }
 
-    let token_b64 = parts[0];
+    let uuid_b64 = parts[0];
     let signature_b64 = parts[1];
 
     // Verify signature
     let mut mac = HmacSha256::new_from_slice(config.session_secret.expose_secret().as_bytes())
         .wrap_err("invalid secret key")?;
-    mac.update(token_b64.as_bytes());
+    mac.update(uuid_b64.as_bytes());
 
     let signature = BASE64_URL_SAFE_NO_PAD
         .decode(signature_b64)
         .wrap_err("invalid signature encoding")?;
 
     mac.verify_slice(&signature)
-        .map_err(|_| eyre!("invalid signature"))?;
+        .map_err(|_| eyre!("invalid token signature"))?;
 
-    // Decode token
-    let token_json = BASE64_URL_SAFE_NO_PAD
-        .decode(token_b64)
+    // Decode UUID
+    let uuid_bytes = BASE64_URL_SAFE_NO_PAD
+        .decode(uuid_b64)
         .wrap_err("invalid token encoding")?;
 
-    let token: ProvisionToken =
-        serde_json::from_slice(&token_json).wrap_err("failed to parse token")?;
+    let uuid_bytes: [u8; 16] = uuid_bytes
+        .try_into()
+        .map_err(|_| eyre!("invalid token length"))?;
 
-    // Check expiration
-    if token.is_expired() {
-        return Err(eyre!("provision link has expired").into());
-    }
-
-    Ok(token)
+    Ok(Uuid::from_bytes(uuid_bytes))
 }

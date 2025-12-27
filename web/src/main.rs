@@ -50,6 +50,9 @@ fn main() {
         use server::Config;
 
         dioxus::serve(|| async move {
+            // Initialize storage for provision links
+            server::init().expect("Failed to initialize server storage");
+
             let config = Config::from_env().expect("Failed to load configuration");
             let auth_state = AuthState::new(config).expect("Failed to create auth state");
 

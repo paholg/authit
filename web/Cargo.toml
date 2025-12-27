@@ -4,26 +4,26 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router", "fullstack"] }
-ui = { workspace = true }
-api = { workspace = true }
-types = { workspace = true }
-serde.workspace = true
+dioxus               = { workspace = true, features = ["router", "fullstack"] }
+ui                   = { workspace = true }
+api                  = { workspace = true }
+types                = { workspace = true }
+serde.workspace      = true
 serde_json.workspace = true
-secrecy.workspace = true
-tracing.workspace = true
-jiff.workspace = true
+secrecy.workspace    = true
+tracing.workspace    = true
+jiff.workspace       = true
 
 # Server-only
-server = { workspace = true, optional = true }
-axum = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true }
-oauth2 = { workspace = true, optional = true }
+server  = { workspace = true, optional = true }
+axum    = { workspace = true, optional = true }
+tokio   = { workspace = true, optional = true }
+oauth2  = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
-cookie = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
+cookie  = { workspace = true, optional = true }
+url     = { workspace = true, optional = true }
 
 [features]
 default = []
-web = ["dioxus/web"]
-server = ["dioxus/server", "ui/server", "api/server", "dep:server", "dep:axum", "dep:tokio", "dep:oauth2", "dep:reqwest", "dep:cookie", "dep:url"]
+web     = ["dioxus/web"]
+server  = ["dioxus/server", "ui/server", "api/server", "dep:server", "dep:axum", "dep:tokio", "dep:oauth2", "dep:reqwest", "dep:cookie", "dep:url"]

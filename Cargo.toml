@@ -21,6 +21,8 @@ jiff = { version = "0.2", features = ["serde"] }
 hmac = "0.12"
 sha2 = "0.10"
 uuid = { version = "1", features = ["serde"] }
+redb = "2"
+postcard = { version = "1", features = ["alloc"] }
 
 # Server-only
 axum = { version = "0.8" }

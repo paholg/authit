@@ -601,7 +601,8 @@ fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> 
 #[component]
 fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
     let mut error_state = use_error();
-    let mut duration_hours = use_signal(|| 1u32);
+    let mut duration_hours = use_signal(|| 24u32);
+    let mut max_uses = use_signal(|| Some(1u32));
     let mut generating = use_signal(|| false);
     let mut provision_url = use_signal(|| None::<String>);
     let mut copied = use_signal(|| false);
@@ -696,6 +697,26 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                                 option { value: "168", "7 days" }
                             }
                         }
+                        div { class: "form-group",
+                            label { class: "form-label", r#for: "max_uses", "Maximum uses" }
+                            select {
+                                id: "max_uses",
+                                class: "form-input",
+                                value: "{max_uses().map(|n| n.to_string()).unwrap_or_default()}",
+                                onchange: move |e| {
+                                    let value = e.value();
+                                    if value.is_empty() {
+                                        max_uses.set(None);
+                                    } else if let Ok(v) = value.parse() {
+                                        max_uses.set(Some(v));
+                                    }
+                                },
+                                option { value: "1", "1 use (single user)" }
+                                option { value: "5", "5 uses" }
+                                option { value: "10", "10 uses" }
+                                option { value: "", "Unlimited" }
+                            }
+                        }
                     }
                 }
                 div { class: "modal-footer",
@@ -716,9 +737,10 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                             disabled: *generating.read(),
                             onclick: move |_| {
                                 let hours = *duration_hours.read();
+                                let uses = *max_uses.read();
                                 spawn(async move {
                                     generating.set(true);
-                                    match api::generate_provision_url(hours).await {
+                                    match api::generate_provision_url(hours, uses).await {
                                         Ok(url) => provision_url.set(Some(url)),
                                         Err(e) => error_state.set(format!("Failed to generate link: {}", e)),
                                     }

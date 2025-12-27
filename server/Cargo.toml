@@ -17,3 +17,5 @@ base64.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 uuid = { workspace = true, features = ["v7"] }
+redb.workspace = true
+postcard.workspace = true
