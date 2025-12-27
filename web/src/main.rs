@@ -77,12 +77,12 @@ fn App() -> Element {
 #[component]
 fn NavLink(to: Route, children: Element) -> Element {
     let current_route: Route = use_route();
-    let is_active = match (&current_route, &to) {
-        (Route::Dashboard {}, Route::Dashboard {}) => true,
-        (Route::UserList {}, Route::UserList {}) => true,
-        (Route::UserDetail { .. }, Route::UserList {}) => true,
-        _ => false,
-    };
+    let is_active = matches!(
+        (&current_route, &to),
+        (Route::Dashboard {}, Route::Dashboard {})
+            | (Route::UserList {}, Route::UserList {})
+            | (Route::UserDetail { .. }, Route::UserList {})
+    );
 
     rsx! {
         Link {
