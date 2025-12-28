@@ -2,6 +2,7 @@ use reqwest::Url;
 use secrecy::SecretString;
 use serde::Deserialize;
 use std::env;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use tracing::Level;

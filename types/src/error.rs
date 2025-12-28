@@ -52,7 +52,6 @@ impl From<Error> for anyhow::Error {
 #[cfg(feature = "server")]
 impl From<Error> for dioxus::server::ServerFnError {
     fn from(value: Error) -> Self {
-        // Build the error chain
         let mut chain: Vec<String> = Vec::new();
         chain.push(value.inner.to_string());
         let mut source = std::error::Error::source(&*value.inner);
@@ -61,7 +60,6 @@ impl From<Error> for dioxus::server::ServerFnError {
             source = err.source();
         }
 
-        // Capture backtrace - will be empty if RUST_BACKTRACE is not set
         let backtrace = value.inner.backtrace().to_string();
         let backtrace = if backtrace.is_empty() || backtrace == "disabled backtrace" {
             None

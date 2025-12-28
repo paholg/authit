@@ -13,6 +13,7 @@ Configuration can be done with either environment variables or a toml file, or
 a mix. A configuration option of `foo_bar` would be set by the environment
 variable `AUTHIT_FOO_BAR`.
 
+The location of the config file is specified by `AUTHIT_CONFIG_PORT`.
 
 | Config key | Description |
 | --- | ---|
@@ -26,3 +27,11 @@ variable `AUTHIT_FOO_BAR`.
 | data_dir | The directory to store a sqlite database or anything else AuthIt needs.|
 | db_secret | The secret used to encrypt the sqlite database. Run `openssl rand -hex 32` or similar to generate. |
 | log_level | Defaults to INFO. |
+
+A few configuration options are only settable by environment variable.
+
+| Variable | Description |
+| --- | --- |
+| IP | Ip address to listen on. Defaults to `127.0.0.1`. |
+| PORT | Port to listen on. Defaults to `8080`. |
+| RUSTC_BACKTRACE | Set to `1` to get backtraces in errors. Defaults off. |
