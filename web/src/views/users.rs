@@ -1,6 +1,6 @@
 use crate::{Route, use_error};
-use dioxus::document::eval;
 use dioxus::prelude::*;
+use dioxus::{document::eval, fullstack::reqwest::Url};
 use jiff::Timestamp;
 use types::{
     ResetLink,
@@ -586,7 +586,7 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
     let mut duration_hours = use_signal(|| 24u32);
     let mut max_uses = use_signal(|| Some(1u8));
     let mut generating = use_signal(|| false);
-    let mut provision_url = use_signal(|| None::<String>);
+    let mut provision_url = use_signal(|| None::<Url>);
     let mut copied = use_signal(|| false);
 
     rsx! {
@@ -620,7 +620,7 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                                                 spawn(async move {
                                                     let js = format!(
                                                         r#"navigator.clipboard.writeText("{}")"#,
-                                                        url.replace("\"", "\\\"")
+                                                        url.to_string().replace("\"", "\\\"")
                                                     );
                                                     if eval(&js).recv::<()>().await.is_ok() {
                                                         copied.set(true);

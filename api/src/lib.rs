@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{fullstack::reqwest::Url, prelude::*};
 use types::{
     ResetLink, UserData,
     kanidm::{Group, Person},
@@ -73,14 +73,13 @@ pub async fn create_user(
 pub async fn generate_provision_url(
     duration_hours: u32,
     max_uses: Option<u8>,
-) -> ServerFnResult<String> {
+) -> ServerFnResult<Url> {
     server::require_admin_session().await?;
 
     let duration = std::time::Duration::from_secs(duration_hours as u64 * 3600);
     let link = server::ProvisionLink::create(duration, max_uses).await?;
     let token = link.as_token()?;
-    let base_url = server::get_request_base_url().await?;
-    Ok(format!("{}/provision/{}", base_url, token.as_str()))
+    Ok(server::CONFIG.provision_url(token)?)
 }
 
 #[post("/api/provision/verify")]

@@ -21,7 +21,7 @@ The location of the config file is specified by `AUTHIT_CONFIG_PORT`.
 | kanidm_token | The service account API token. It will need read-write privileges to make changes. |
 | oauth_client_id | The Kanidm oauth2 client id for AuthIt! |
 | oauth_client_secret | The Kanidm oauth2 client secret for AuthIt! |
-| oauth_redirect_uri | The AuthIt! redirect URI. This should be `https://{AUTHIT_DOMAIN}/auth/callbacl` |
+| authit_url | The base url for AuthIt! |
 | signing_secret | The secret AuthIt! uses to sign sessions and provision links. Run `openssl rand -hex 32` or similar to generate. | 
 | admin_group | The group a user needs to be in to use this service. NOTE: Any user in this group will be able to create and delete users, and assign them to groups of their choice. | 
 | data_dir | The directory to store a sqlite database or anything else AuthIt needs.|

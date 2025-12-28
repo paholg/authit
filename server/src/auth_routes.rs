@@ -48,11 +48,12 @@ pub struct AuthState {
 impl AuthState {
     pub fn new() -> types::Result<Self> {
         let kanidm_url = &CONFIG.kanidm_url;
+        let authit_url = &CONFIG.authit_url;
 
         let oauth_client = BasicClient::new(ClientId::new(CONFIG.oauth_client_id.clone()))
-            .set_auth_uri(AuthUrl::from_url(kanidm_url.join("ui/oauth2")?))
-            .set_token_uri(TokenUrl::from_url(kanidm_url.join("oauth2/token")?))
-            .set_redirect_uri(RedirectUrl::new(CONFIG.oauth_redirect_uri.clone())?);
+            .set_auth_uri(AuthUrl::from_url(kanidm_url.join("/ui/oauth2")?))
+            .set_token_uri(TokenUrl::from_url(kanidm_url.join("/oauth2/token")?))
+            .set_redirect_uri(RedirectUrl::from_url(authit_url.join("/auth/callback")?));
 
         Ok(Self {
             oauth_client,
@@ -150,7 +151,10 @@ async fn callback_inner(
         .form(&[
             ("grant_type", "authorization_code"),
             ("code", &params.code),
-            ("redirect_uri", &CONFIG.oauth_redirect_uri),
+            (
+                "redirect_uri",
+                CONFIG.authit_url.join("/auth/callback")?.as_str(),
+            ),
             ("client_id", &CONFIG.oauth_client_id),
             ("client_secret", CONFIG.oauth_client_secret.expose_secret()),
             ("code_verifier", pkce_verifier.secret()),
@@ -184,7 +188,7 @@ async fn callback_inner(
     let cookie = Cookie::build((SESSION_COOKIE_NAME, token))
         .path("/")
         .http_only(true)
-        .secure(false) // FIXME: Set to true in production with HTTPS
+        .secure(true)
         .build();
 
     let mut response = Redirect::to("/").into_response();

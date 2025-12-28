@@ -2,10 +2,10 @@ use reqwest::Url;
 use secrecy::SecretString;
 use serde::Deserialize;
 use std::env;
-use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use tracing::Level;
+use types::provision::ProvisionToken;
 
 pub static CONFIG: LazyLock<Config> = LazyLock::new(|| Config::new().unwrap());
 
@@ -15,13 +15,20 @@ pub struct Config {
     pub kanidm_token: SecretString,
     pub oauth_client_id: String,
     pub oauth_client_secret: SecretString,
-    pub oauth_redirect_uri: String,
+    pub authit_url: Url,
     pub signing_secret: SecretString,
     pub admin_group: String,
     pub data_dir: PathBuf,
     pub db_secret: SecretString,
     #[serde(default = "default_log_level", deserialize_with = "deserialize_level")]
     pub log_level: Level,
+}
+
+impl Config {
+    pub fn provision_url(&self, token: ProvisionToken) -> types::Result<Url> {
+        let url = self.authit_url.join("/provision/")?.join(token.as_str())?;
+        Ok(url)
+    }
 }
 
 fn default_log_level() -> Level {

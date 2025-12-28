@@ -54,27 +54,6 @@ pub async fn init() -> Result<Router> {
     Ok(auth_router(auth_state))
 }
 
-pub async fn get_request_base_url() -> Result<String> {
-    use axum::http::HeaderMap;
-    use dioxus::fullstack::FullstackContext;
-
-    let headers: HeaderMap = FullstackContext::extract().await?;
-
-    let host = headers
-        .get("x-forwarded-host")
-        .or_else(|| headers.get("host"))
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| err!("no host header in request"))?;
-
-    // Use X-Forwarded-Proto if set (by reverse proxy), otherwise assume http
-    let proto = headers
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("http");
-
-    Ok(format!("{}://{}", proto, host))
-}
-
 pub async fn get_session_from_cookie() -> Result<UserData> {
     let headers: HeaderMap = FullstackContext::extract().await?;
 
