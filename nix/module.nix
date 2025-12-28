@@ -75,9 +75,29 @@ in
       '';
       example = "/run/secrets/authit.toml";
     };
+
+    user = lib.mkOption {
+      type = lib.types.str;
+      default = "authit";
+      description = "User to run authit as";
+    };
+
+    group = lib.mkOption {
+      type = lib.types.str;
+      default = "authit";
+      description = "Group to run authit as";
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    users.users.${cfg.user} = {
+      isSystemUser = true;
+      group = cfg.group;
+      home = "/var/lib/authit";
+    };
+
+    users.groups.${cfg.group} = { };
+
     systemd.services.authit = {
       description = "AuthIt user management service";
       wantedBy = [ "multi-user.target" ];
@@ -97,8 +117,9 @@ in
 
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/web";
-        DynamicUser = true;
         StateDirectory = "authit";
+        User = cfg.user;
+        Group = cfg.group;
 
         # Hardening
         NoNewPrivileges = true;
