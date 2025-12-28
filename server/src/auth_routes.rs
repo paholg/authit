@@ -19,7 +19,9 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::RwLock;
-use types::{SESSION_COOKIE_NAME, UserData, err};
+use types::err;
+
+use crate::{SESSION_COOKIE_NAME, user_data::UserData};
 
 use crate::{CONFIG, ReqwestExt, storage::Session};
 

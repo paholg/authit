@@ -246,11 +246,10 @@ fn AuthenticatedLayout() -> Element {
     let user = use_server_future(api::get_current_user)?;
 
     match &*user.read() {
-        Some(Ok(Some(session))) => {
-            let session_clone: types::UserData = session.clone();
-            use_context_provider(|| session_clone.clone());
+        Some(Ok(Some(person))) => {
+            let person = person.clone();
             use_context_provider(|| ErrorState(Signal::new(None)));
-            let initial = session_clone
+            let initial = person
                 .display_name
                 .chars()
                 .next()
@@ -273,8 +272,8 @@ fn AuthenticatedLayout() -> Element {
                             div { class: "sidebar-user",
                                 div { class: "sidebar-avatar", "{initial}" }
                                 div { class: "sidebar-user-info",
-                                    div { class: "sidebar-user-name", "{session_clone.display_name}" }
-                                    div { class: "sidebar-user-role", "{session_clone.username}" }
+                                    div { class: "sidebar-user-name", "{person.display_name}" }
+                                    div { class: "sidebar-user-role", "{person.name}" }
                                 }
                             }
                             a { href: "/auth/logout", rel: "external", class: "sidebar-logout", "Sign out" }

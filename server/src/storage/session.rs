@@ -1,4 +1,6 @@
-use types::{Result, UserData};
+use types::Result;
+
+use crate::user_data::UserData;
 use uuid::Uuid;
 
 use crate::{storage::POOL, uuid_v7::UuidV7Ext};

@@ -1,8 +1,6 @@
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 
-pub const SESSION_COOKIE_NAME: &str = "authit_session";
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserData {
     pub user_id: String,

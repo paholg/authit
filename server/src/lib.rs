@@ -2,14 +2,17 @@ mod auth_routes;
 mod config;
 mod kanidm;
 pub mod storage;
+mod user_data;
 pub mod uuid_v7;
+
+pub use user_data::UserData;
 
 use axum::Router;
 use axum::http::HeaderMap;
 use dioxus::fullstack::FullstackContext;
 use reqwest::RequestBuilder;
 use serde::de::DeserializeOwned;
-use types::{Result, SESSION_COOKIE_NAME, UserData, err};
+use types::{Result, err};
 
 use crate::auth_routes::{AuthState, auth_router};
 pub use crate::config::CONFIG;
@@ -17,6 +20,8 @@ pub use crate::kanidm::KANIDM_CLIENT;
 pub use crate::storage::ProvisionLink;
 use crate::storage::Session;
 use tracing_subscriber::EnvFilter;
+
+pub const SESSION_COOKIE_NAME: &str = "authit_session";
 
 pub fn init_tracing() {
     let filter = EnvFilter::builder()
@@ -72,8 +77,9 @@ async fn get_session_from_cookie() -> Result<Session> {
     Err(err!("session cookie not found"))
 }
 
-pub async fn get_current_user() -> Result<UserData> {
-    Ok(get_session_from_cookie().await?.user_data)
+pub async fn get_current_user() -> Result<types::kanidm::Person> {
+    let session = get_session_from_cookie().await?;
+    KANIDM_CLIENT.get_person(&session.user_data.username).await
 }
 
 async fn require_admin_session() -> Result<UserData> {

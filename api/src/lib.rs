@@ -1,14 +1,14 @@
 use dioxus::{fullstack::reqwest::Url, prelude::*};
 use types::{
-    ResetLink, UserData,
+    ResetLink,
     kanidm::{Group, Person},
 };
 use uuid::Uuid;
 
 #[post("/api/current-user")]
-pub async fn get_current_user() -> ServerFnResult<Option<UserData>> {
+pub async fn get_current_user() -> ServerFnResult<Option<Person>> {
     match server::get_current_user().await {
-        Ok(user_data) => Ok(Some(user_data)),
+        Ok(person) => Ok(Some(person)),
         Err(_) => Ok(None),
     }
 }
@@ -28,7 +28,7 @@ pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> Serv
     server::with_admin_session(|_| async move {
         if add {
             server::KANIDM_CLIENT
-                .add_user_to_group(&group_id, &user_id)
+                .add_user_to_group(&group_id.to_string(), &user_id)
                 .await?;
         } else {
             server::KANIDM_CLIENT
