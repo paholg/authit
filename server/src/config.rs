@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::env;
 use std::path::PathBuf;
 use std::sync::LazyLock;
+use tracing::Level;
 
 pub static CONFIG: LazyLock<Config> = LazyLock::new(|| Config::new().unwrap());
 
@@ -18,6 +19,20 @@ pub struct Config {
     pub admin_group: String,
     pub data_dir: PathBuf,
     pub db_secret: SecretString,
+    #[serde(default = "default_log_level", deserialize_with = "deserialize_level")]
+    pub log_level: Level,
+}
+
+fn default_log_level() -> Level {
+    Level::INFO
+}
+
+fn deserialize_level<'de, D>(deserializer: D) -> Result<Level, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse().map_err(serde::de::Error::custom)
 }
 
 impl Config {

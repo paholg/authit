@@ -43,11 +43,14 @@ fn UserDetail(user_id: Uuid) -> Element {
 
 fn main() {
     #[cfg(feature = "server")]
-    dioxus::serve(|| async move {
-        let routes = server::init().await?;
+    {
+        server::init_tracing();
+        dioxus::serve(|| async move {
+            let routes = server::init().await?;
 
-        Ok(dioxus::server::router(App).merge(routes))
-    });
+            Ok(dioxus::server::router(App).merge(routes))
+        });
+    }
 
     #[cfg(all(feature = "web", not(feature = "server")))]
     dioxus::launch(App);

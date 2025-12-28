@@ -16,6 +16,15 @@ pub use crate::config::CONFIG;
 pub use crate::kanidm::KANIDM_CLIENT;
 pub use crate::storage::ProvisionLink;
 use crate::storage::Session;
+use tracing_subscriber::EnvFilter;
+
+pub fn init_tracing() {
+    let filter = EnvFilter::builder()
+        .with_default_directive(CONFIG.log_level.into())
+        .from_env_lossy();
+
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+}
 
 trait ReqwestExt {
     async fn try_send<T: DeserializeOwned>(self) -> Result<T>;
@@ -40,6 +49,7 @@ impl ReqwestExt for RequestBuilder {
 }
 pub async fn init() -> Result<Router> {
     storage::migrate().await?;
+
     let auth_state = AuthState::new()?;
     Ok(auth_router(auth_state))
 }

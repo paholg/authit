@@ -22,6 +22,7 @@ sha2 = "0.10"
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "derive", "macros", "migrate"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
-types.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+types = { workspace = true, features = ["server"] }
 url.workspace = true
 uuid = { workspace = true, features = ["v7"] }
