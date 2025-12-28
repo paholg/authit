@@ -97,8 +97,7 @@
         {
           imports = [ ./nix/module.nix ];
 
-          # Set default package based on system
-          services.authit.package = lib.mkDefault self.packages.${pkgs.system}.default;
+          services.authit.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
         };
     };
 }
