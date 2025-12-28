@@ -165,7 +165,7 @@ async fn callback_inner(
     ))?;
     let user_info_response: UserInfoResponse = client
         .get(userinfo_url)
-        .bearer_auth(&token_response.access_token.expose_secret())
+        .bearer_auth(token_response.access_token.expose_secret())
         .try_send()
         .await?;
 
@@ -198,13 +198,13 @@ async fn callback_inner(
 
 async fn logout(headers: HeaderMap) -> impl IntoResponse {
     // Try to delete session from DB
-    if let Some(cookie_header) = headers.get(axum::http::header::COOKIE) {
-        if let Ok(cookie_str) = cookie_header.to_str() {
-            for part in cookie_str.split(';') {
-                let part = part.trim();
-                if let Some(token) = part.strip_prefix(&format!("{}=", SESSION_COOKIE_NAME)) {
-                    let _ = Session::delete_token(token).await;
-                }
+    if let Some(cookie_header) = headers.get(axum::http::header::COOKIE)
+        && let Ok(cookie_str) = cookie_header.to_str()
+    {
+        for part in cookie_str.split(';') {
+            let part = part.trim();
+            if let Some(token) = part.strip_prefix(&format!("{}=", SESSION_COOKIE_NAME)) {
+                let _ = Session::delete_token(token).await;
             }
         }
     }
