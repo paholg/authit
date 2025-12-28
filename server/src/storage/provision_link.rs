@@ -7,29 +7,42 @@ use uuid::Uuid;
 
 use crate::{storage::POOL, uuid_v7::UuidV7Ext};
 
-#[derive(Debug)]
-pub struct ProvisionLink {
+struct ProvisionLinkRow {
     id: Uuid,
     expires_at: SqlxTimestamp,
     max_uses: Option<i32>,
     use_count: i32,
+    groups: String,
+}
+
+#[derive(Debug)]
+pub struct ProvisionLink {
+    id: Uuid,
+    expires_at: Timestamp,
+    max_uses: Option<i32>,
+    use_count: i32,
+    groups: Vec<String>,
 }
 
 impl ProvisionLink {
-    pub fn new(duration: Duration, max_uses: Option<u8>) -> Self {
+    pub fn new(duration: Duration, max_uses: Option<u8>, groups: Vec<String>) -> Self {
         let id = Uuid::now_v7();
-        let expires_at = (id.jiff_timestamp() + duration).to_sqlx();
 
         Self {
             id,
-            expires_at,
-            max_uses: max_uses.map(|u| u as i32),
+            expires_at: id.jiff_timestamp() + duration,
+            max_uses: max_uses.map(Into::into),
             use_count: 0,
+            groups,
         }
     }
 
-    pub async fn create(duration: Duration, max_uses: Option<u8>) -> Result<Self> {
-        let this = Self::new(duration, max_uses);
+    pub async fn create(
+        duration: Duration,
+        max_uses: Option<u8>,
+        groups: Vec<String>,
+    ) -> Result<Self> {
+        let this = Self::new(duration, max_uses, groups);
         this.insert().await?;
         Ok(this)
     }
@@ -37,21 +50,30 @@ impl ProvisionLink {
     pub async fn find(id: Uuid) -> Result<Self> {
         let id_bytes = id.as_bytes().as_slice();
 
-        Ok(sqlx::query_as!(
-            ProvisionLink,
+        let row = sqlx::query_as!(
+            ProvisionLinkRow,
             r#"
             SELECT
                 id as "id: _",
                 expires_at as "expires_at: _",
                 max_uses as "max_uses: _",
-                use_count as "use_count: _"
+                use_count as "use_count: _",
+                groups
             FROM provision_links
             WHERE id = ?
             "#,
             id_bytes,
         )
         .fetch_one(&*POOL)
-        .await?)
+        .await?;
+
+        Ok(Self {
+            id: row.id,
+            expires_at: row.expires_at.to_jiff(),
+            max_uses: row.max_uses,
+            use_count: row.use_count,
+            groups: serde_json::from_str(&row.groups)?,
+        })
     }
 
     pub async fn find_token(token: String) -> Result<Self> {
@@ -96,7 +118,7 @@ impl ProvisionLink {
     }
 
     fn is_expired(&self) -> bool {
-        Timestamp::now() >= self.expires_at.to_jiff()
+        Timestamp::now() >= self.expires_at
     }
 
     fn is_exhausted(&self) -> bool {
@@ -109,21 +131,24 @@ impl ProvisionLink {
         Ok(ProvisionToken::new(signed_uuid))
     }
 
+    pub fn groups(&self) -> &[String] {
+        &self.groups
+    }
+
     pub async fn insert(&self) -> Result<()> {
-        let id = self.id.as_bytes().as_slice();
-        let expires_at = &self.expires_at;
-        let max_uses = self.max_uses;
-        let use_count = self.use_count;
+        let expires_at = self.expires_at.to_sqlx();
+        let groups = serde_json::to_string(&self.groups)?;
 
         sqlx::query!(
             r#"
-            INSERT INTO provision_links (id, expires_at, max_uses, use_count)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO provision_links (id, expires_at, max_uses, use_count, groups)
+            VALUES (?, ?, ?, ?, ?)
             "#,
-            id,
+            self.id,
             expires_at,
-            max_uses,
-            use_count,
+            self.max_uses,
+            self.use_count,
+            groups,
         )
         .execute(&*POOL)
         .await?;

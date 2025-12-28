@@ -77,8 +77,8 @@ impl KanidmClient {
             .collect()
     }
 
-    pub async fn add_user_to_group(&self, group_id: &Uuid, user_id: &Uuid) -> Result<()> {
-        self.post(format!("/v1/group/{group_id}/_attr/member"))?
+    pub async fn add_user_to_group(&self, id_or_name: &str, user_id: &Uuid) -> Result<()> {
+        self.post(format!("/v1/group/{id_or_name}/_attr/member"))?
             .json(&vec![user_id])
             .try_send()
             .await

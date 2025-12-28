@@ -1,4 +1,6 @@
-use super::components::UserForm;
+use std::collections::HashSet;
+
+use super::components::{GroupCheckboxList, UserForm};
 use crate::{Route, use_error};
 use dioxus::prelude::*;
 use dioxus::{document::eval, fullstack::reqwest::Url};
@@ -199,13 +201,15 @@ fn UserDetailsCard(
     }
 
     // Separate groups into custom and built-in (already sorted from parent)
-    let custom_groups: Vec<_> = groups
+    let custom_groups: Vec<Group> = groups
         .iter()
         .filter(|g| !is_builtin_group(&g.name))
+        .cloned()
         .collect();
-    let builtin_groups: Vec<_> = groups
+    let builtin_groups: Vec<Group> = groups
         .iter()
         .filter(|g| is_builtin_group(&g.name))
+        .cloned()
         .collect();
 
     rsx! {
@@ -230,42 +234,30 @@ fn UserDetailsCard(
                 div { class: "divider" }
 
                 h3 { class: "section-header", "Custom Groups" }
-                ul { class: "group-checklist",
-                    for group in &custom_groups {
-                        {
-                            let is_member = is_member_of(&user, group);
-                            let group_name = group.name.clone();
-                            let group_id = group.uuid;
-                            let is_updating = updating_group.read().as_ref() == Some(&group_id);
-
-                            rsx! {
-                                li { class: "group-checklist-item",
-                                    label { class: "checkbox-label",
-                                        input {
-                                            r#type: "checkbox",
-                                            checked: is_member,
-                                            disabled: is_updating,
-                                            onchange: move |_| {
-                                                let group_id = group_id;
-                                                let user_id = user_id;
-                                                let add = !is_member;
-                                                spawn(async move {
-                                                    updating_group.set(Some(group_id));
-                                                    match api::update_user_group(user_id, group_id, add).await {
-                                                        Ok(()) => on_updated.call(()),
-                                                        Err(e) => error_state.set_server_error(&e),
-                                                    }
-                                                    updating_group.set(None);
-                                                });
-                                            }
-                                        }
-                                        span { "{group_name}" }
-                                        if is_updating {
-                                            span { class: "checkbox-updating", "(updating...)" }
-                                        }
+                {
+                    let custom_member_ids: HashSet<Uuid> = custom_groups
+                        .iter()
+                        .filter(|g| is_member_of(&user, g))
+                        .map(|g| g.uuid)
+                        .collect();
+                    let custom_member_ids_clone = custom_member_ids.clone();
+                    rsx! {
+                        GroupCheckboxList {
+                            groups: custom_groups.clone(),
+                            selected: custom_member_ids,
+                            updating: *updating_group.read(),
+                            on_toggle: move |group_id: Uuid| {
+                                let user_id = user_id;
+                                let add = !custom_member_ids_clone.contains(&group_id);
+                                spawn(async move {
+                                    updating_group.set(Some(group_id));
+                                    match api::update_user_group(user_id, group_id, add).await {
+                                        Ok(()) => on_updated.call(()),
+                                        Err(e) => error_state.set_server_error(&e),
                                     }
-                                }
-                            }
+                                    updating_group.set(None);
+                                });
+                            },
                         }
                     }
                 }
@@ -276,42 +268,30 @@ fn UserDetailsCard(
                 div { class: "divider" }
 
                 h3 { class: "section-header", "Built-in Groups" }
-                ul { class: "group-checklist",
-                    for group in &builtin_groups {
-                        {
-                            let is_member = is_member_of(&user, group);
-                            let group_name = group.name.clone();
-                            let group_id = group.uuid;
-                            let is_updating = updating_group.read().as_ref() == Some(&group_id);
-
-                            rsx! {
-                                li { class: "group-checklist-item",
-                                    label { class: "checkbox-label",
-                                        input {
-                                            r#type: "checkbox",
-                                            checked: is_member,
-                                            disabled: is_updating,
-                                            onchange: move |_| {
-                                                let group_id = group_id;
-                                                let user_id = user_id;
-                                                let add = !is_member;
-                                                spawn(async move {
-                                                    updating_group.set(Some(group_id));
-                                                    match api::update_user_group(user_id, group_id, add).await {
-                                                        Ok(()) => on_updated.call(()),
-                                                        Err(e) => error_state.set_server_error(&e),
-                                                    }
-                                                    updating_group.set(None);
-                                                });
-                                            }
-                                        }
-                                        span { "{group_name}" }
-                                        if is_updating {
-                                            span { class: "checkbox-updating", "(updating...)" }
-                                        }
+                {
+                    let builtin_member_ids: HashSet<Uuid> = builtin_groups
+                        .iter()
+                        .filter(|g| is_member_of(&user, g))
+                        .map(|g| g.uuid)
+                        .collect();
+                    let builtin_member_ids_clone = builtin_member_ids.clone();
+                    rsx! {
+                        GroupCheckboxList {
+                            groups: builtin_groups.clone(),
+                            selected: builtin_member_ids,
+                            updating: *updating_group.read(),
+                            on_toggle: move |group_id: Uuid| {
+                                let user_id = user_id;
+                                let add = !builtin_member_ids_clone.contains(&group_id);
+                                spawn(async move {
+                                    updating_group.set(Some(group_id));
+                                    match api::update_user_group(user_id, group_id, add).await {
+                                        Ok(()) => on_updated.call(()),
+                                        Err(e) => error_state.set_server_error(&e),
                                     }
-                                }
-                            }
+                                    updating_group.set(None);
+                                });
+                            },
                         }
                     }
                 }
@@ -557,6 +537,28 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
     let mut generating = use_signal(|| false);
     let mut provision_url = use_signal(|| None::<Url>);
     let mut copied = use_signal(|| false);
+    let mut groups = use_signal(Vec::<Group>::new);
+    let mut selected_groups = use_signal(HashSet::<Uuid>::new);
+
+    // Fetch groups on mount
+    use_effect(move || {
+        spawn(async move {
+            if let Ok(mut g) = api::list_groups().await {
+                g.sort_unstable();
+                groups.set(g);
+            }
+        });
+    });
+
+    // Filter to custom groups only (use memo to track reactivity)
+    let custom_groups = use_memo(move || {
+        groups
+            .read()
+            .iter()
+            .filter(|g| !is_builtin_group(&g.name))
+            .cloned()
+            .collect::<Vec<Group>>()
+    });
 
     rsx! {
         div { class: "modal-overlay",
@@ -668,6 +670,24 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                                 option { value: "", "Unlimited" }
                             }
                         }
+                        if !custom_groups.read().is_empty() {
+                            div { class: "form-group",
+                                label { class: "form-label", "Add to groups" }
+                                GroupCheckboxList {
+                                    groups: custom_groups.read().clone(),
+                                    selected: selected_groups.read().clone(),
+                                    on_toggle: move |group_id: Uuid| {
+                                        selected_groups.with_mut(|set| {
+                                            if set.contains(&group_id) {
+                                                set.remove(&group_id);
+                                            } else {
+                                                set.insert(group_id);
+                                            }
+                                        });
+                                    },
+                                }
+                            }
+                        }
                     }
                 }
                 div { class: "modal-footer",
@@ -689,9 +709,16 @@ fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
                             onclick: move |_| {
                                 let hours = *duration_hours.read();
                                 let uses = *max_uses.read();
+                                // Convert selected group UUIDs to group names
+                                let group_names: Vec<String> = groups
+                                    .read()
+                                    .iter()
+                                    .filter(|g| selected_groups.read().contains(&g.uuid))
+                                    .map(|g| g.name.clone())
+                                    .collect();
                                 spawn(async move {
                                     generating.set(true);
-                                    match api::generate_provision_url(hours, uses).await {
+                                    match api::generate_provision_url(hours, uses, group_names).await {
                                         Ok(url) => provision_url.set(Some(url)),
                                         Err(e) => error_state.set_server_error(&e),
                                     }

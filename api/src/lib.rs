@@ -30,7 +30,7 @@ pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> Serv
     server::require_admin_session().await?;
     if add {
         server::KANIDM_CLIENT
-            .add_user_to_group(&group_id, &user_id)
+            .add_user_to_group(&group_id.to_string(), &user_id)
             .await?;
     } else {
         server::KANIDM_CLIENT
@@ -73,11 +73,12 @@ pub async fn create_user(
 pub async fn generate_provision_url(
     duration_hours: u32,
     max_uses: Option<u8>,
+    group_names: Vec<String>,
 ) -> ServerFnResult<Url> {
     server::require_admin_session().await?;
 
     let duration = std::time::Duration::from_secs(duration_hours as u64 * 3600);
-    let link = server::ProvisionLink::create(duration, max_uses).await?;
+    let link = server::ProvisionLink::create(duration, max_uses, group_names).await?;
     let token = link.as_token()?;
     Ok(server::CONFIG.provision_url(token)?)
 }
@@ -103,7 +104,18 @@ pub async fn complete_provision(
 
     if result.is_err() {
         let _ = link.decrement().await;
+        return Ok(result?);
     }
 
-    Ok(result?)
+    let reset_link = result?;
+
+    // Add the user to the groups specified in the provision link
+    let person = server::KANIDM_CLIENT.get_person(&name).await?;
+    for group_name in link.groups() {
+        server::KANIDM_CLIENT
+            .add_user_to_group(group_name, &person.uuid)
+            .await?;
+    }
+
+    Ok(reset_link)
 }
