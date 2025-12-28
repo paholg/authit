@@ -24,5 +24,8 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 types = { workspace = true, features = ["server"] }
-url.workspace = true
 uuid = { workspace = true, features = ["v7"] }
+
+[package.metadata.cargo-machete]
+# We need to depend on it for the sqlcipher feature.
+ignored = ["libsqlite3-sys"]

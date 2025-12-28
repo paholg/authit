@@ -5,11 +5,9 @@ version = "0.1.0"
 
 [dependencies]
 dioxus = { workspace = true, features = ["fullstack"] }
-serde_json.workspace = true
 types.workspace = true
 uuid.workspace = true
 
-# Server-only
 server = { workspace = true, optional = true }
 
 [features]

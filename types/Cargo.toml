@@ -5,7 +5,6 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
-base64.workspace = true
 dioxus.workspace = true
 jiff.workspace = true
 secrecy.workspace = true
