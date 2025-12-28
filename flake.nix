@@ -56,7 +56,8 @@
             '';
             installPhase = ''
               mkdir -p $out/bin
-              cp -r target/dx/web/release/web $out/bin/
+              cp target/dx/web/release/web/web $out/bin/
+              cp -r target/dx/web/release/web/public $out/bin/
             '';
             cargoLock.lockFile = ./Cargo.lock;
           };
