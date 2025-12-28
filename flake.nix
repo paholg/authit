@@ -42,9 +42,20 @@
 
           craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustMinimal);
 
+          src = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter =
+              path: type:
+              (craneLib.filterCargoSources path type)
+              || (builtins.match ".*\.(css|svg|png|jpg|jpeg|gif|ico|woff|woff2|json)$" path != null);
+          };
+
           commonArgs = {
+            inherit src;
             strictDeps = true;
-            nativeBuildInputs = [ ];
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl ];
+            SQLX_OFFLINE = "true";
           };
 
           artifacts = commonArgs // {
