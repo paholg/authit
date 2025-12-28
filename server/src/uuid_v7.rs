@@ -28,7 +28,7 @@ impl UuidV7Ext for Uuid {
         let signature_b64 = parts[1];
 
         // Verify HMAC signature
-        let mut mac = HmacSha256::new_from_slice(CONFIG.session_secret.expose_secret().as_bytes())?;
+        let mut mac = HmacSha256::new_from_slice(CONFIG.signing_secret.expose_secret().as_bytes())?;
         mac.update(uuid_simple.as_bytes());
         let signature = BASE64_URL_SAFE_NO_PAD.decode(signature_b64)?;
         mac.verify_slice(&signature)?;
@@ -39,7 +39,7 @@ impl UuidV7Ext for Uuid {
 
     fn as_token(&self) -> Result<String> {
         let id_str = self.simple().to_string();
-        let mut mac = HmacSha256::new_from_slice(CONFIG.session_secret.expose_secret().as_bytes())?;
+        let mut mac = HmacSha256::new_from_slice(CONFIG.signing_secret.expose_secret().as_bytes())?;
         mac.update(id_str.as_bytes());
         let signature = BASE64_URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
         Ok(format!("{}.{}", id_str, signature))

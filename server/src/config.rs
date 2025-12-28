@@ -15,7 +15,7 @@ pub struct Config {
     pub oauth_client_id: String,
     pub oauth_client_secret: SecretString,
     pub oauth_redirect_uri: String,
-    pub session_secret: SecretString,
+    pub signing_secret: SecretString,
     pub admin_group: String,
     pub data_dir: PathBuf,
     pub db_secret: SecretString,
