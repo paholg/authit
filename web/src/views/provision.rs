@@ -1,11 +1,12 @@
+use super::components::UserForm;
 use dioxus::prelude::*;
 use types::ResetLink;
 
 #[component]
 pub fn Provision(token: String) -> Element {
-    let mut username = use_signal(String::new);
-    let mut display_name = use_signal(String::new);
-    let mut email = use_signal(String::new);
+    let username = use_signal(String::new);
+    let display_name = use_signal(String::new);
+    let email = use_signal(String::new);
     let mut submitting = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let mut reset_link = use_signal(|| None::<ResetLink>);
@@ -55,42 +56,7 @@ pub fn Provision(token: String) -> Element {
                                 div { class: "alert alert-error", "{err}" }
                             }
 
-                            div { class: "form-group",
-                                label { class: "form-label", r#for: "username", "Username" }
-                                input {
-                                    id: "username",
-                                    class: "form-input",
-                                    r#type: "text",
-                                    placeholder: "e.g. jsmith",
-                                    disabled: *submitting.read(),
-                                    value: "{username}",
-                                    oninput: move |e| username.set(e.value()),
-                                }
-                            }
-                            div { class: "form-group",
-                                label { class: "form-label", r#for: "display_name", "Display Name" }
-                                input {
-                                    id: "display_name",
-                                    class: "form-input",
-                                    r#type: "text",
-                                    placeholder: "e.g. John Smith",
-                                    disabled: *submitting.read(),
-                                    value: "{display_name}",
-                                    oninput: move |e| display_name.set(e.value()),
-                                }
-                            }
-                            div { class: "form-group",
-                                label { class: "form-label", r#for: "email", "Email" }
-                                input {
-                                    id: "email",
-                                    class: "form-input",
-                                    r#type: "email",
-                                    placeholder: "e.g. jsmith@example.com",
-                                    disabled: *submitting.read(),
-                                    value: "{email}",
-                                    oninput: move |e| email.set(e.value()),
-                                }
-                            }
+                            UserForm { username, display_name, email }
                         }
                         div { class: "provision-footer",
                             button {

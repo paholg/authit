@@ -1,3 +1,4 @@
+use super::components::UserForm;
 use crate::{Route, use_error};
 use dioxus::prelude::*;
 use dioxus::{document::eval, fullstack::reqwest::Url};
@@ -495,9 +496,9 @@ fn DeleteConfirmModal(
 #[component]
 fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> Element {
     let mut error_state = use_error();
-    let mut username = use_signal(String::new);
-    let mut display_name = use_signal(String::new);
-    let mut email = use_signal(String::new);
+    let username = use_signal(String::new);
+    let display_name = use_signal(String::new);
+    let email = use_signal(String::new);
     let mut creating = use_signal(|| false);
 
     let can_submit = !username.read().is_empty() && !display_name.read().is_empty();
@@ -516,39 +517,7 @@ fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> 
                     }
                 }
                 div { class: "modal-body",
-                    div { class: "form-group",
-                        label { class: "form-label", r#for: "username", "Username" }
-                        input {
-                            id: "username",
-                            class: "form-input",
-                            r#type: "text",
-                            placeholder: "e.g. jsmith",
-                            value: "{username}",
-                            oninput: move |e| username.set(e.value()),
-                        }
-                    }
-                    div { class: "form-group",
-                        label { class: "form-label", r#for: "display_name", "Display Name" }
-                        input {
-                            id: "display_name",
-                            class: "form-input",
-                            r#type: "text",
-                            placeholder: "e.g. John Smith",
-                            value: "{display_name}",
-                            oninput: move |e| display_name.set(e.value()),
-                        }
-                    }
-                    div { class: "form-group",
-                        label { class: "form-label", r#for: "email", "Email" }
-                        input {
-                            id: "email",
-                            class: "form-input",
-                            r#type: "email",
-                            placeholder: "e.g. jsmith@example.com",
-                            value: "{email}",
-                            oninput: move |e| email.set(e.value()),
-                        }
-                    }
+                    UserForm { username, display_name, email }
                 }
                 div { class: "modal-footer",
                     button {
