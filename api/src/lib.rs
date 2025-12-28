@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use types::{
-    ProvisionLinkInfo, ResetLink, UserSession,
+    ResetLink, UserSession,
     kanidm::{Group, Person},
 };
 use uuid::Uuid;
@@ -72,17 +72,21 @@ pub async fn create_user(
 #[post("/api/provision/generate")]
 pub async fn generate_provision_url(
     duration_hours: u32,
-    max_uses: Option<u32>,
+    max_uses: Option<u8>,
 ) -> ServerFnResult<String> {
     server::require_admin_session().await?;
-    let token = server::create_provision_link(duration_hours, max_uses)?;
+
+    let duration = std::time::Duration::from_secs(duration_hours as u64 * 3600);
+    let link = server::ProvisionLink::create(duration, max_uses).await?;
+    let token = link.as_token()?;
     let base_url = server::get_request_base_url().await?;
-    Ok(format!("{}/provision/{}", base_url, token))
+    Ok(format!("{}/provision/{}", base_url, token.as_str()))
 }
 
 #[post("/api/provision/verify")]
-pub async fn verify_provision(token: String) -> ServerFnResult<ProvisionLinkInfo> {
-    Ok(server::verify_provision_link(&token)?)
+pub async fn verify_provision(token: String) -> ServerFnResult<()> {
+    server::ProvisionLink::find_token(token).await?.verify()?;
+    Ok(())
 }
 
 #[post("/api/provision/complete")]
@@ -92,22 +96,15 @@ pub async fn complete_provision(
     display_name: String,
     email_address: String,
 ) -> ServerFnResult<ResetLink> {
-    let record = server::consume_provision_link(&token)?;
+    let link = server::ProvisionLink::consume(token).await?;
 
-    match server::KANIDM_CLIENT
-        .create_person(&name, &display_name, &email_address)
-        .await
-    {
-        Ok(()) => {
-            let person = server::KANIDM_CLIENT.get_person(&name).await?;
-            Ok(server::KANIDM_CLIENT
-                .generate_credential_reset_link(&person.uuid)
-                .await?)
-        }
-        Err(e) => {
-            // Restore the link so user can retry
-            let _ = server::unconsume_provision_link(record);
-            Err(e.into())
-        }
+    let result = server::KANIDM_CLIENT
+        .create_person_with_link(&name, &display_name, &email_address)
+        .await;
+
+    if result.is_err() {
+        let _ = link.decrement().await;
     }
+
+    Ok(result?)
 }

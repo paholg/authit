@@ -584,7 +584,7 @@ fn CreateUserModal(on_close: EventHandler<()>, on_created: EventHandler<()>) -> 
 fn ProvisionLinkModal(on_close: EventHandler<()>) -> Element {
     let mut error_state = use_error();
     let mut duration_hours = use_signal(|| 24u32);
-    let mut max_uses = use_signal(|| Some(1u32));
+    let mut max_uses = use_signal(|| Some(1u8));
     let mut generating = use_signal(|| false);
     let mut provision_url = use_signal(|| None::<String>);
     let mut copied = use_signal(|| false);

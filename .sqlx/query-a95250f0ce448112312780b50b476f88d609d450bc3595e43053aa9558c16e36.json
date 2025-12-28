@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE provision_links\n            SET use_count = use_count - 1\n            WHERE id = ? AND use_count > 0\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a95250f0ce448112312780b50b476f88d609d450bc3595e43053aa9558c16e36"
+}

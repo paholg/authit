@@ -83,6 +83,7 @@
                 just
                 pkg-config
                 openssl
+                sqlx-cli
               ]
               ++ [ rustDev ];
           };

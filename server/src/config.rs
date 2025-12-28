@@ -17,6 +17,9 @@ pub struct Config {
     pub session_secret: SecretString,
     pub admin_group: String,
     pub data_dir: PathBuf,
+    /// Database encryption key. Required in release builds, optional in debug.
+    #[cfg(not(debug_assertions))]
+    pub db_secret: SecretString,
 }
 
 impl Config {

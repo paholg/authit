@@ -1,6 +1,9 @@
 serve *args:
     cd web && dx serve {{args}}
 
+build *args:
+    cd web && dx build {{args}}
+
 test *args:
     cargo nextest run --no-fail-fast {{args}}
 

@@ -4,23 +4,24 @@ name = "server"
 version = "0.1.0"
 
 [dependencies]
-axum.workspace = true
+axum = { version = "0.8" }
 base64.workspace = true
 config = { version = "0.15.19", features = ["toml"] }
-cookie.workspace = true
+cookie = "0.18"
 dioxus = { workspace = true, features = ["fullstack", "server"] }
-hmac.workspace = true
+hmac = "0.12"
 jiff.workspace = true
-oauth2.workspace = true
-postcard.workspace = true
-redb.workspace = true
-reqwest.workspace = true
+jiff-sqlx = { version = "0.1.1", features = ["sqlite"] }
+libsqlite3-sys = { version = "0.30", features = ["bundled-sqlcipher"] }
+oauth2 = "5"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+sha2 = "0.10"
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "derive", "macros", "migrate"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
 types.workspace = true
 url.workspace = true
 uuid = { workspace = true, features = ["v7"] }

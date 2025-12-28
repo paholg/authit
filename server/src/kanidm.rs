@@ -119,6 +119,18 @@ impl KanidmClient {
             .await
     }
 
+    pub async fn create_person_with_link(
+        &self,
+        user_name: &str,
+        display_name: &str,
+        email_address: &str,
+    ) -> Result<ResetLink> {
+        self.create_person(user_name, display_name, email_address)
+            .await?;
+        let person = self.get_person(user_name).await?;
+        self.generate_credential_reset_link(&person.uuid).await
+    }
+
     pub async fn create_person(
         &self,
         user_name: &str,

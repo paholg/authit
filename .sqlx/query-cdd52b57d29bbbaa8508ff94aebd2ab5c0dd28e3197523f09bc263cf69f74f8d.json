@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE provision_links\n            SET use_count = use_count + 1\n            WHERE id = ? AND (max_uses IS NULL OR use_count < max_uses)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "cdd52b57d29bbbaa8508ff94aebd2ab5c0dd28e3197523f09bc263cf69f74f8d"
+}

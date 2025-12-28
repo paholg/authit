@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO provision_links (id, created_at, expires_at, max_uses, use_count)\n            VALUES (?, ?, ?, ?, ?)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "256775d678d4a564ff1b2694661e6b5e2207c5f42797ac9464f48a3fa871bdf6"
+}
