@@ -91,7 +91,7 @@ in
         AUTHIT_ADMIN_GROUP = cfg.adminGroup;
         AUTHIT_LOG_LEVEL = cfg.logLevel;
         AUTHIT_DATA_DIR = "/var/lib/authit";
-        IP = cfg.ip_address;
+        IP = cfg.ipAddress;
         PORT = toString cfg.port;
       };
 
