@@ -13,7 +13,7 @@ Configuration can be done with either environment variables or a toml file, or
 a mix. A configuration option of `foo_bar` would be set by the environment
 variable `AUTHIT_FOO_BAR`.
 
-The location of the config file is specified by `AUTHIT_CONFIG_PORT`.
+The location of the config file is specified by `AUTHIT_CONFIG_PATH`.
 
 | Config key | Description |
 | --- | ---|

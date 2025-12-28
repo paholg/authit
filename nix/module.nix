@@ -26,10 +26,16 @@ in
       description = "OAuth2 client ID";
     };
 
-    oauthRedirectUri = lib.mkOption {
+    authitUrl = lib.mkOption {
       type = lib.types.str;
-      description = "OAuth2 redirect URI";
-      example = "https://authit.example.com/auth/callback";
+      description = "Public URL of this AuthIt instance";
+      example = "https://authit.example.com";
+    };
+
+    logLevel = lib.mkOption {
+      type = lib.types.enum [ "trace" "debug" "info" "warn" "error" ];
+      default = "info";
+      description = "Log level for the service";
     };
 
     adminGroup = lib.mkOption {
@@ -57,16 +63,17 @@ in
       description = "Open firewall port";
     };
 
-    # Secrets via environment file
-    environmentFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
+    # Configuration file for secrets
+    configFile = lib.mkOption {
+      type = lib.types.path;
       description = ''
-        Environment file containing secrets. Must define:
-        - AUTHIT_KANIDM_TOKEN
-        - AUTHIT_OAUTH_CLIENT_SECRET
-        - AUTHIT_SESSION_SECRET
+        Path to the AuthIt configuration file containing secrets:
+        - kanidm_token
+        - oauth_client_secret
+        - signing_secret
+        - db_secret
       '';
+      example = "/run/secrets/authit.toml";
     };
   };
 
@@ -77,10 +84,12 @@ in
       after = [ "network.target" ];
 
       environment = {
+        AUTHIT_CONFIG_PATH = cfg.configFile;
         AUTHIT_KANIDM_URL = cfg.kanidmUrl;
         AUTHIT_OAUTH_CLIENT_ID = cfg.oauthClientId;
-        AUTHIT_OAUTH_REDIRECT_URI = cfg.oauthRedirectUri;
+        AUTHIT_AUTHIT_URL = cfg.authitUrl;
         AUTHIT_ADMIN_GROUP = cfg.adminGroup;
+        AUTHIT_LOG_LEVEL = cfg.logLevel;
         AUTHIT_DATA_DIR = "/var/lib/authit";
         DIOXUS_IP = cfg.address;
         DIOXUS_PORT = toString cfg.port;
@@ -90,7 +99,6 @@ in
         ExecStart = "${cfg.package}/bin/web";
         DynamicUser = true;
         StateDirectory = "authit";
-        EnvironmentFile = lib.mkIf (cfg.environmentFile != null) cfg.environmentFile;
 
         # Hardening
         NoNewPrivileges = true;
