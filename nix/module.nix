@@ -33,7 +33,13 @@ in
     };
 
     logLevel = lib.mkOption {
-      type = lib.types.enum [ "trace" "debug" "info" "warn" "error" ];
+      type = lib.types.enum [
+        "trace"
+        "debug"
+        "info"
+        "warn"
+        "error"
+      ];
       default = "info";
       description = "Log level for the service";
     };
@@ -44,11 +50,10 @@ in
       description = "Kanidm group name for admin access";
     };
 
-    # Network configuration
-    address = lib.mkOption {
+    ipAddress = lib.mkOption {
       type = lib.types.str;
       default = "127.0.0.1";
-      description = "Address to bind to";
+      description = "Bind address";
     };
 
     port = lib.mkOption {
@@ -63,15 +68,10 @@ in
       description = "Open firewall port";
     };
 
-    # Configuration file for secrets
     configFile = lib.mkOption {
       type = lib.types.path;
       description = ''
-        Path to the AuthIt configuration file containing secrets:
-        - kanidm_token
-        - oauth_client_secret
-        - signing_secret
-        - db_secret
+        Path to the AuthIt configuration file containing secrets or other config.
       '';
       example = "/run/secrets/authit.toml";
     };
@@ -91,8 +91,8 @@ in
         AUTHIT_ADMIN_GROUP = cfg.adminGroup;
         AUTHIT_LOG_LEVEL = cfg.logLevel;
         AUTHIT_DATA_DIR = "/var/lib/authit";
-        DIOXUS_IP = cfg.address;
-        DIOXUS_PORT = toString cfg.port;
+        IP = cfg.ip_address;
+        PORT = toString cfg.port;
       };
 
       serviceConfig = {
