@@ -8,8 +8,8 @@ use views::{Dashboard, Login, Provision, Users};
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
-    #[route("/login")]
-    Login {},
+    #[route("/login?:error")]
+    Login { error: Option<String> },
     #[route("/provision/:token")]
     Provision { token: String },
     #[layout(AuthenticatedLayout)]
@@ -156,6 +156,14 @@ impl ErrorState {
     }
 
     pub fn set_server_error(&mut self, err: &ServerFnError) {
+        // Check for 401 (session expired) and redirect to login
+        if let ServerFnError::ServerError { code: 401, message, .. } = err {
+            let nav = navigator();
+            nav.push(Route::Login {
+                error: Some(message.clone()),
+            });
+            return;
+        }
         self.0.set(Some(ErrorInfo::from_server_error(err)));
     }
 
@@ -289,7 +297,7 @@ fn AuthenticatedLayout() -> Element {
         }
         Some(Ok(None)) | Some(Err(_)) => {
             let nav = navigator();
-            nav.push(Route::Login {});
+            nav.push(Route::Login { error: None });
             rsx! {
                 div { class: "loading", "Redirecting to login..." }
             }

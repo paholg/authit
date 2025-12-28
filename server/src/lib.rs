@@ -82,7 +82,7 @@ pub async fn get_current_user() -> Result<types::kanidm::Person> {
     KANIDM_CLIENT.get_person(&session.user_data.username).await
 }
 
-async fn require_admin_session() -> Result<UserData> {
+async fn require_admin_session() -> dioxus::prelude::ServerFnResult<UserData> {
     let session = get_session_from_cookie().await?;
 
     if !session.user_data.is_in_group(&CONFIG.admin_group) {
@@ -90,7 +90,8 @@ async fn require_admin_session() -> Result<UserData> {
             "access denied: user '{}' must be in '{}' group",
             session.user_data.username,
             CONFIG.admin_group
-        ));
+        )
+        .into());
     }
 
     if KANIDM_CLIENT
@@ -99,7 +100,11 @@ async fn require_admin_session() -> Result<UserData> {
         .is_err()
     {
         session.delete().await?;
-        return Err(err!("session expired, please log in again"));
+        return Err(dioxus::prelude::ServerFnError::ServerError {
+            message: "Session expired, please log in again".to_string(),
+            code: 401,
+            details: None,
+        });
     }
 
     Ok(session.user_data)
