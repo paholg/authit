@@ -1,6 +1,5 @@
 {
   inputs = {
-    crane.url = "github:ipetkov/crane";
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "nixpkgs/nixos-unstable";
     rust-overlay = {
@@ -12,7 +11,6 @@
   outputs =
     {
       self,
-      crane,
       flake-utils,
       nixpkgs,
       rust-overlay,
@@ -22,9 +20,7 @@
       systemOutputs = flake-utils.lib.eachDefaultSystem (
         system:
         let
-          overlays = [
-            (import rust-overlay)
-          ];
+          overlays = [ (import rust-overlay) ];
           pkgs = import nixpkgs {
             inherit system overlays;
           };
@@ -40,51 +36,34 @@
             targets = [ "wasm32-unknown-unknown" ];
           };
 
-          craneLib = (crane.mkLib pkgs).overrideToolchain (p: rustMinimal);
-
-          src = pkgs.lib.cleanSourceWith {
+          package = pkgs.rustPlatform.buildRustPackage {
+            pname = "authit";
+            version = "0.1.0";
             src = ./.;
-            filter =
-              path: type:
-              (craneLib.filterCargoSources path type)
-              || (builtins.match ".*\.(css|svg|png|jpg|jpeg|gif|ico|woff|woff2|json)$" path != null);
-          };
-
-          commonArgs = {
-            inherit src;
             strictDeps = true;
-            nativeBuildInputs = [ pkgs.pkg-config ];
+            nativeBuildInputs = [
+              pkgs.pkg-config
+              pkgs.dioxus-cli
+              pkgs.wasm-bindgen-cli
+              pkgs.binaryen
+              rustMinimal
+            ];
             buildInputs = [ pkgs.openssl ];
-            cargoExtraArgs = "-p web --features server";
             SQLX_OFFLINE = "true";
+            buildPhase = ''
+              export HOME=$(mktemp -d)
+              dx build --release --platform web --package web
+            '';
+            installPhase = ''
+              mkdir -p $out/bin
+              cp -r target/dx/web/release/web $out/bin/
+            '';
+            cargoLock.lockFile = ./Cargo.lock;
           };
-
-          artifacts = commonArgs // {
-            cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          };
-
-          package = craneLib.buildPackage (
-            artifacts
-            // {
-              doCheck = false;
-            }
-          );
 
         in
         {
-          checks = {
-            clippy = craneLib.cargoClippy (
-              artifacts
-              // {
-                cargoClippyExtraArgs = "-- --deny warnings";
-              }
-            );
-            fmt = craneLib.cargoFmt artifacts;
-            test = craneLib.cargoNextest artifacts;
-          };
-          packages = {
-            default = package;
-          };
+          packages.default = package;
           devShells.default = pkgs.mkShell {
             packages =
               with pkgs;
