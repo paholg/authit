@@ -244,7 +244,7 @@ fn AuthenticatedLayout() -> Element {
 
     match &*user.read() {
         Some(Ok(Some(session))) => {
-            let session_clone: types::UserSession = session.clone();
+            let session_clone: types::UserData = session.clone();
             use_context_provider(|| session_clone.clone());
             use_context_provider(|| ErrorState(Signal::new(None)));
             let initial = session_clone

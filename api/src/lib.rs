@@ -1,14 +1,14 @@
 use dioxus::prelude::*;
 use types::{
-    ResetLink, UserSession,
+    ResetLink, UserData,
     kanidm::{Group, Person},
 };
 use uuid::Uuid;
 
 #[post("/api/current-user")]
-pub async fn get_current_user() -> ServerFnResult<Option<UserSession>> {
+pub async fn get_current_user() -> ServerFnResult<Option<UserData>> {
     match server::get_session_from_cookie().await {
-        Ok(session) => Ok(Some(session)),
+        Ok(user_data) => Ok(Some(user_data)),
         Err(_) => Ok(None),
     }
 }

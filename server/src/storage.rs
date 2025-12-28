@@ -1,26 +1,22 @@
 use dioxus::fullstack::Lazy;
+use secrecy::ExposeSecret;
 use sqlx::SqlitePool;
-#[cfg(debug_assertions)]
 use sqlx::sqlite::SqliteConnectOptions;
 use types::Result;
 
 use crate::CONFIG;
 pub use provision_link::ProvisionLink;
+pub use session::Session;
 
 mod provision_link;
+mod session;
 
 static POOL: Lazy<SqlitePool> = Lazy::new(|| async {
     let db_path = CONFIG.data_dir.join("db.sqlite");
 
-    #[cfg(debug_assertions)]
     let options = SqliteConnectOptions::new()
         .filename(&db_path)
-        .create_if_missing(true);
-
-    #[cfg(not(debug_assertions))]
-    let options = SqliteConnectOptions::new()
-        .filename(&db_path)
-        .pragma("key", CONFIG.db_secret.expose_secret().to_owned())
+        .pragma("key", CONFIG.db_secret.expose_secret())
         .create_if_missing(true);
 
     SqlitePool::connect_with(options).await

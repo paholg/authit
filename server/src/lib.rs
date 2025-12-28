@@ -2,17 +2,42 @@ mod auth_routes;
 mod config;
 mod kanidm;
 pub mod storage;
+pub mod uuid_v7;
 
 use axum::Router;
 use axum::http::HeaderMap;
 use dioxus::fullstack::FullstackContext;
-use types::{Result, SESSION_COOKIE_NAME, UserSession, decode_session, err};
+use reqwest::RequestBuilder;
+use serde::de::DeserializeOwned;
+use types::{Result, SESSION_COOKIE_NAME, UserData, err};
 
 use crate::auth_routes::{AuthState, auth_router};
 pub use crate::config::CONFIG;
 pub use crate::kanidm::KANIDM_CLIENT;
 pub use crate::storage::ProvisionLink;
+use crate::storage::Session;
 
+trait ReqwestExt {
+    async fn try_send<T: DeserializeOwned>(self) -> Result<T>;
+}
+
+impl ReqwestExt for RequestBuilder {
+    async fn try_send<T: DeserializeOwned>(self) -> Result<T> {
+        let response = self.send().await?.error_for_status()?;
+        let body = response.bytes().await?;
+
+        match serde_json::from_slice(&body) {
+            Ok(r) => Ok(r),
+            Err(error) => {
+                // NOTE: We don't want to log these responses in production, but
+                // they can be useful for debugging.
+                // let body = String::from_utf8_lossy(&body);
+                // tracing::debug!(?error, ?body, "failed to parse response");
+                Err(error.into())
+            }
+        }
+    }
+}
 pub async fn init() -> Result<Router> {
     storage::migrate().await?;
     let auth_state = AuthState::new()?;
@@ -40,8 +65,7 @@ pub async fn get_request_base_url() -> Result<String> {
     Ok(format!("{}://{}", proto, host))
 }
 
-/// Extract the user session from the request cookie.
-pub async fn get_session_from_cookie() -> Result<UserSession> {
+pub async fn get_session_from_cookie() -> Result<UserData> {
     let headers: HeaderMap = FullstackContext::extract().await?;
 
     let cookie_header = headers
@@ -51,25 +75,25 @@ pub async fn get_session_from_cookie() -> Result<UserSession> {
 
     for cookie_str in cookie_header.split(';') {
         let cookie_str = cookie_str.trim();
-        if let Some(value) = cookie_str.strip_prefix(&format!("{}=", SESSION_COOKIE_NAME)) {
-            return decode_session(value);
+        if let Some(token) = cookie_str.strip_prefix(&format!("{}=", SESSION_COOKIE_NAME)) {
+            let session = Session::find_token(token).await?;
+            return Ok(session.user_data().clone());
         }
     }
 
     Err(err!("session cookie not found"))
 }
 
-/// Require an authenticated admin session, returning the session if valid.
-pub async fn require_admin_session() -> Result<UserSession> {
-    let session = get_session_from_cookie().await?;
+pub async fn require_admin_session() -> Result<UserData> {
+    let user_data = get_session_from_cookie().await?;
 
-    if !session.is_in_group(&CONFIG.admin_group) {
+    if !user_data.is_in_group(&CONFIG.admin_group) {
         return Err(err!(
             "access denied: user '{}' must be in '{}' group",
-            session.username,
+            user_data.username,
             CONFIG.admin_group
         ));
     }
 
-    Ok(session)
+    Ok(user_data)
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub const SESSION_COOKIE_NAME: &str = "authit_session";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserSession {
+pub struct UserData {
     pub user_id: String,
     pub username: String,
     pub display_name: String,
@@ -13,7 +13,7 @@ pub struct UserSession {
     pub access_token: SecretString,
 }
 
-impl UserSession {
+impl UserData {
     pub fn is_in_group(&self, group: &str) -> bool {
         self.groups.iter().any(|g| g == group)
     }
@@ -38,17 +38,4 @@ mod secret_string {
         let s = String::deserialize(deserializer)?;
         Ok(s.into())
     }
-}
-
-pub fn encode_session(session: &UserSession) -> crate::Result<String> {
-    let json = serde_json::to_string(session)?;
-    use base64::Engine;
-    Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json.as_bytes()))
-}
-
-pub fn decode_session(encoded: &str) -> crate::Result<UserSession> {
-    use base64::Engine;
-    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(encoded)?;
-    let json = String::from_utf8(bytes)?;
-    Ok(serde_json::from_str(&json)?)
 }

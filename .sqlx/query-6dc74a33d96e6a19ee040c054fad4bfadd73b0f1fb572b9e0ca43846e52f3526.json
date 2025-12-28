@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                id as \"id: _\",\n                expires_at as \"expires_at: _\",\n                max_uses as \"max_uses: _\",\n                use_count as \"use_count: _\"\n            FROM provision_links\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: _",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "expires_at: _",
+        "ordinal": 1,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "max_uses: _",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "use_count: _",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "6dc74a33d96e6a19ee040c054fad4bfadd73b0f1fb572b9e0ca43846e52f3526"
+}

@@ -8,3 +8,5 @@
 
 # Other
 .direnv/
+dev/*
+!dev/.keep

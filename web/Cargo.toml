@@ -6,6 +6,7 @@ version = "0.1.0"
 [dependencies]
 api = { workspace = true }
 dioxus = { workspace = true, features = ["router", "fullstack"] }
+dotenvy = "0.15.7"
 jiff.workspace = true
 secrecy.workspace = true
 serde.workspace = true
