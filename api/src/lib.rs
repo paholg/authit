@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 #[post("/api/current-user")]
 pub async fn get_current_user() -> ServerFnResult<Option<UserData>> {
-    match server::get_session_from_cookie().await {
+    match server::get_current_user().await {
         Ok(user_data) => Ok(Some(user_data)),
         Err(_) => Ok(None),
     }
@@ -15,45 +15,48 @@ pub async fn get_current_user() -> ServerFnResult<Option<UserData>> {
 
 #[post("/api/users")]
 pub async fn list_users() -> ServerFnResult<Vec<Person>> {
-    server::require_admin_session().await?;
-    Ok(server::KANIDM_CLIENT.list_persons().await?)
+    server::with_admin_session(|_| async { Ok(server::KANIDM_CLIENT.list_persons().await?) }).await
 }
 
 #[post("/api/groups")]
 pub async fn list_groups() -> ServerFnResult<Vec<Group>> {
-    server::require_admin_session().await?;
-    Ok(server::KANIDM_CLIENT.list_groups().await?)
+    server::with_admin_session(|_| async { Ok(server::KANIDM_CLIENT.list_groups().await?) }).await
 }
 
 #[post("/api/users/groups")]
 pub async fn update_user_group(user_id: Uuid, group_id: Uuid, add: bool) -> ServerFnResult<()> {
-    server::require_admin_session().await?;
-    if add {
-        server::KANIDM_CLIENT
-            .add_user_to_group(&group_id.to_string(), &user_id)
-            .await?;
-    } else {
-        server::KANIDM_CLIENT
-            .remove_user_from_group(&group_id, &user_id)
-            .await?;
-    }
-
-    Ok(())
+    server::with_admin_session(|_| async move {
+        if add {
+            server::KANIDM_CLIENT
+                .add_user_to_group(&group_id, &user_id)
+                .await?;
+        } else {
+            server::KANIDM_CLIENT
+                .remove_user_from_group(&group_id, &user_id)
+                .await?;
+        }
+        Ok(())
+    })
+    .await
 }
 
 #[post("/api/users/reset-link")]
 pub async fn generate_reset_link(user_id: Uuid) -> ServerFnResult<ResetLink> {
-    server::require_admin_session().await?;
-    Ok(server::KANIDM_CLIENT
-        .generate_credential_reset_link(&user_id)
-        .await?)
+    server::with_admin_session(|_| async move {
+        Ok(server::KANIDM_CLIENT
+            .generate_credential_reset_link(&user_id)
+            .await?)
+    })
+    .await
 }
 
 #[post("/api/users/delete")]
 pub async fn delete_user(user_id: Uuid) -> ServerFnResult<()> {
-    server::require_admin_session().await?;
-    server::KANIDM_CLIENT.delete_person(&user_id).await?;
-    Ok(())
+    server::with_admin_session(|_| async move {
+        server::KANIDM_CLIENT.delete_person(&user_id).await?;
+        Ok(())
+    })
+    .await
 }
 
 #[post("/api/users/create")]
@@ -62,11 +65,13 @@ pub async fn create_user(
     display_name: String,
     email_address: String,
 ) -> ServerFnResult<()> {
-    server::require_admin_session().await?;
-    server::KANIDM_CLIENT
-        .create_person(&name, &display_name, &email_address)
-        .await?;
-    Ok(())
+    server::with_admin_session(|_| async {
+        server::KANIDM_CLIENT
+            .create_person(&name, &display_name, &email_address)
+            .await?;
+        Ok(())
+    })
+    .await
 }
 
 #[post("/api/provision/generate")]
@@ -75,12 +80,13 @@ pub async fn generate_provision_url(
     max_uses: Option<u8>,
     group_names: Vec<String>,
 ) -> ServerFnResult<Url> {
-    server::require_admin_session().await?;
-
-    let duration = std::time::Duration::from_secs(duration_hours as u64 * 3600);
-    let link = server::ProvisionLink::create(duration, max_uses, group_names).await?;
-    let token = link.as_token()?;
-    Ok(server::CONFIG.provision_url(token)?)
+    server::with_admin_session(|_| async move {
+        let duration = std::time::Duration::from_secs(duration_hours as u64 * 3600);
+        let link = server::ProvisionLink::create(duration, max_uses, group_names).await?;
+        let token = link.as_token()?;
+        Ok(server::CONFIG.provision_url(token)?)
+    })
+    .await
 }
 
 #[post("/api/provision/verify")]

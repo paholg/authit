@@ -11,7 +11,7 @@ struct SessionRow {
 #[derive(Debug)]
 pub struct Session {
     id: Uuid,
-    user_data: UserData,
+    pub user_data: UserData,
 }
 
 impl Session {
@@ -54,10 +54,6 @@ impl Session {
     pub async fn find_token(token: &str) -> Result<Self> {
         let uuid = Uuid::from_token(token)?;
         Self::find(uuid).await
-    }
-
-    pub fn user_data(&self) -> &UserData {
-        &self.user_data
     }
 
     pub fn as_token(&self) -> Result<String> {

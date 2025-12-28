@@ -50,17 +50,19 @@ impl From<Error> for anyhow::Error {
 }
 
 #[cfg(feature = "server")]
-impl From<Error> for dioxus::server::ServerFnError {
-    fn from(value: Error) -> Self {
+impl Error {
+    /// Convert to a rich ServerFnError with full error chain and backtrace.
+    /// Only use this for authenticated requests where exposing details is safe.
+    pub fn into_rich_server_error(self) -> dioxus::server::ServerFnError {
         let mut chain: Vec<String> = Vec::new();
-        chain.push(value.inner.to_string());
-        let mut source = std::error::Error::source(&*value.inner);
+        chain.push(self.inner.to_string());
+        let mut source = std::error::Error::source(&*self.inner);
         while let Some(err) = source {
             chain.push(err.to_string());
             source = err.source();
         }
 
-        let backtrace = value.inner.backtrace().to_string();
+        let backtrace = self.inner.backtrace().to_string();
         let backtrace = if backtrace.is_empty() || backtrace == "disabled backtrace" {
             None
         } else {
@@ -77,3 +79,16 @@ impl From<Error> for dioxus::server::ServerFnError {
         }
     }
 }
+
+#[cfg(feature = "server")]
+impl From<Error> for dioxus::server::ServerFnError {
+    fn from(value: Error) -> Self {
+        // Default: return minimal error info for unauthenticated requests
+        dioxus::server::ServerFnError::ServerError {
+            message: value.inner.to_string(),
+            code: 500,
+            details: None,
+        }
+    }
+}
+

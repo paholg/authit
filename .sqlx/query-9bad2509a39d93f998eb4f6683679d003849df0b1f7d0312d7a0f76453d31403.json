@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT\n                id as \"id: _\",\n                expires_at as \"expires_at: _\",\n                max_uses as \"max_uses: _\",\n                use_count as \"use_count: _\"\n            FROM provision_links\n            WHERE id = ?\n            ",
+  "query": "\n            SELECT\n                id as \"id: _\",\n                expires_at as \"expires_at: _\",\n                max_uses as \"max_uses: _\",\n                use_count as \"use_count: _\",\n                groups\n            FROM provision_links\n            WHERE id = ?\n            ",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "name": "use_count: _",
         "ordinal": 3,
         "type_info": "Integer"
+      },
+      {
+        "name": "groups",
+        "ordinal": 4,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -31,8 +36,9 @@
       false,
       false,
       true,
+      false,
       false
     ]
   },
-  "hash": "6dc74a33d96e6a19ee040c054fad4bfadd73b0f1fb572b9e0ca43846e52f3526"
+  "hash": "9bad2509a39d93f998eb4f6683679d003849df0b1f7d0312d7a0f76453d31403"
 }

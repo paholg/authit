@@ -147,4 +147,20 @@ impl KanidmClient {
             expires_at: Timestamp::new(response.expiry_time, 0)?,
         })
     }
+
+    /// Verify that the user's OAuth2 access token is still valid with Kanidm.
+    pub async fn verify_access_token(&self, access_token: &SecretString) -> Result<()> {
+        let url = self
+            .base_url
+            .join(&format!("oauth2/openid/{}/userinfo", CONFIG.oauth_client_id))?;
+
+        self.client
+            .get(url)
+            .bearer_auth(access_token.expose_secret())
+            .send()
+            .await?
+            .error_for_status()?;
+
+        Ok(())
+    }
 }

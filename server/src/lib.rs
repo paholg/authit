@@ -54,7 +54,7 @@ pub async fn init() -> Result<Router> {
     Ok(auth_router(auth_state))
 }
 
-pub async fn get_session_from_cookie() -> Result<UserData> {
+async fn get_session_from_cookie() -> Result<Session> {
     let headers: HeaderMap = FullstackContext::extract().await?;
 
     let cookie_header = headers
@@ -65,24 +65,47 @@ pub async fn get_session_from_cookie() -> Result<UserData> {
     for cookie_str in cookie_header.split(';') {
         let cookie_str = cookie_str.trim();
         if let Some(token) = cookie_str.strip_prefix(&format!("{}=", SESSION_COOKIE_NAME)) {
-            let session = Session::find_token(token).await?;
-            return Ok(session.user_data().clone());
+            return Session::find_token(token).await;
         }
     }
 
     Err(err!("session cookie not found"))
 }
 
-pub async fn require_admin_session() -> Result<UserData> {
-    let user_data = get_session_from_cookie().await?;
+pub async fn get_current_user() -> Result<UserData> {
+    Ok(get_session_from_cookie().await?.user_data)
+}
 
-    if !user_data.is_in_group(&CONFIG.admin_group) {
+async fn require_admin_session() -> Result<UserData> {
+    let session = get_session_from_cookie().await?;
+
+    if !session.user_data.is_in_group(&CONFIG.admin_group) {
         return Err(err!(
             "access denied: user '{}' must be in '{}' group",
-            user_data.username,
+            session.user_data.username,
             CONFIG.admin_group
         ));
     }
 
-    Ok(user_data)
+    if KANIDM_CLIENT
+        .verify_access_token(&session.user_data.access_token)
+        .await
+        .is_err()
+    {
+        session.delete().await?;
+        return Err(err!("session expired, please log in again"));
+    }
+
+    Ok(session.user_data)
+}
+
+/// Require admin session and return rich errors with backtraces for the inner block.
+/// Authentication errors return minimal info; errors after auth return full details.
+pub async fn with_admin_session<T, Fut, F>(f: F) -> dioxus::prelude::ServerFnResult<T>
+where
+    F: FnOnce(UserData) -> Fut,
+    Fut: std::future::Future<Output = Result<T>>,
+{
+    let user_data = require_admin_session().await?;
+    f(user_data).await.map_err(|e| e.into_rich_server_error())
 }
