@@ -55,6 +55,7 @@
             strictDeps = true;
             nativeBuildInputs = [ pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
+            cargoExtraArgs = "-p web --features server";
             SQLX_OFFLINE = "true";
           };
 
