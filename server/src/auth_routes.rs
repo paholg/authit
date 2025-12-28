@@ -185,19 +185,7 @@ async fn callback_inner(
     let session = Session::create(user_data).await?;
     let token = session.as_token()?;
 
-    let cookie = Cookie::build((SESSION_COOKIE_NAME, token))
-        .path("/")
-        .http_only(true)
-        .secure(true)
-        .build();
-
-    let mut response = Redirect::to("/").into_response();
-    response.headers_mut().insert(
-        axum::http::header::SET_COOKIE,
-        cookie.to_string().parse().unwrap(),
-    );
-
-    Ok(response)
+    Ok(set_session_cookie(&token))
 }
 
 async fn logout(headers: HeaderMap) -> impl IntoResponse {
@@ -214,13 +202,18 @@ async fn logout(headers: HeaderMap) -> impl IntoResponse {
     }
 
     // Clear the session cookie
-    let cookie = Cookie::build((SESSION_COOKIE_NAME, ""))
+    set_session_cookie("")
+}
+
+fn set_session_cookie(value: &str) -> impl IntoResponse + use<> {
+    let cookie = Cookie::build((SESSION_COOKIE_NAME, value))
         .path("/")
         .http_only(true)
-        .max_age(cookie::time::Duration::ZERO)
+        .secure(true)
+        .same_site(cookie::SameSite::Strict)
         .build();
 
-    let mut response = Redirect::to("/login").into_response();
+    let mut response = Redirect::to("/").into_response();
     response.headers_mut().insert(
         axum::http::header::SET_COOKIE,
         cookie.to_string().parse().unwrap(),
