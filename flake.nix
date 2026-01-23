@@ -36,6 +36,29 @@
             targets = [ "wasm32-unknown-unknown" ];
           };
 
+          # Extract wasm-bindgen version from Cargo.lock so we don't need to
+          # keep nipkgs and Cargo.lock exactly in sync, even for dependents.
+          wasmBindgenVersion =
+            let
+              lockFile = builtins.fromTOML (builtins.readFile ./Cargo.lock);
+              wasmBindgen = builtins.head (builtins.filter (p: p.name == "wasm-bindgen") lockFile.package);
+            in
+            wasmBindgen.version;
+
+          wasmBindgenCli = pkgs.rustPlatform.buildRustPackage rec {
+            pname = "wasm-bindgen-cli";
+            version = wasmBindgenVersion;
+            src = pkgs.fetchCrate {
+              inherit pname version;
+              hash = "sha256-M6WuGl7EruNopHZbqBpucu4RWz44/MSdv6f0zkYw+44=";
+            };
+            cargoHash = "sha256-ElDatyOwdKwHg3bNH/1pcxKI7LXkhsotlDPQjiLHBwA=";
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [
+              pkgs.openssl
+            ];
+          };
+
           package = pkgs.rustPlatform.buildRustPackage {
             pname = "authit";
             version = "0.1.0";
@@ -44,7 +67,7 @@
             nativeBuildInputs = [
               pkgs.pkg-config
               pkgs.dioxus-cli
-              pkgs.wasm-bindgen-cli
+              wasmBindgenCli
               pkgs.binaryen
               rustMinimal
             ];
