@@ -59,6 +59,16 @@
             ];
           };
 
+          dioxusCli = pkgs.symlinkJoin {
+            name = "dioxus-cli-wrapped";
+            paths = [ pkgs.dioxus-cli ];
+            buildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram $out/bin/dx \
+                --prefix PATH : ${pkgs.lib.makeBinPath [ wasmBindgenCli ]}
+            '';
+          };
+
           package = pkgs.rustPlatform.buildRustPackage {
             pname = "authit";
             version = "0.1.0";
@@ -66,8 +76,7 @@
             strictDeps = true;
             nativeBuildInputs = [
               pkgs.pkg-config
-              pkgs.dioxus-cli
-              wasmBindgenCli
+              dioxusCli
               pkgs.binaryen
               rustMinimal
             ];
