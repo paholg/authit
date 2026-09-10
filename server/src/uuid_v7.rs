@@ -1,5 +1,5 @@
 use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use jiff::Timestamp;
 use secrecy::ExposeSecret;
 use sha2::Sha256;

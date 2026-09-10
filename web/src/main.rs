@@ -157,7 +157,10 @@ impl ErrorState {
 
     pub fn set_server_error(&mut self, err: &ServerFnError) {
         // Check for 401 (session expired) and redirect to login
-        if let ServerFnError::ServerError { code: 401, message, .. } = err {
+        if let ServerFnError::ServerError {
+            code: 401, message, ..
+        } = err
+        {
             let nav = navigator();
             nav.push(Route::Login {
                 error: Some(message.clone()),

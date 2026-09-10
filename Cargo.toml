@@ -9,7 +9,7 @@ version = "0.1.0"
 name = "authit"
 
 [workspace.dependencies]
-dioxus = { version = "0.7.2" }
+dioxus = { version = "0.7.10" }
 
 # Workspace
 api = { path = "api" }
@@ -17,7 +17,7 @@ server = { path = "server" }
 types = { path = "types" }
 ui = { path = "ui" }
 
-base64 = "0.22"
+base64 = "0.23"
 jiff = { version = "0.2", features = ["serde"] }
 postcard = { version = "1", features = ["alloc"] }
 secrecy = { version = "0.10", features = ["serde"] }

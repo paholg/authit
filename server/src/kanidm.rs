@@ -150,9 +150,10 @@ impl KanidmClient {
 
     /// Verify that the user's OAuth2 access token is still valid with Kanidm.
     pub async fn verify_access_token(&self, access_token: &SecretString) -> Result<()> {
-        let url = self
-            .base_url
-            .join(&format!("oauth2/openid/{}/userinfo", CONFIG.oauth_client_id))?;
+        let url = self.base_url.join(&format!(
+            "oauth2/openid/{}/userinfo",
+            CONFIG.oauth_client_id
+        ))?;
 
         self.client
             .get(url)
